@@ -1,5 +1,5 @@
 torch==2.6.0
-deepxube==0.1.5
+deepxube==0.1.6
 scipy==1.15.2
 qiskit==1.4.2
 pyyaml==6.0.2

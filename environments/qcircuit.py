@@ -106,17 +106,17 @@ class SdgGate(OneQubitGate):
     
 class TGate(OneQubitGate):
     unitary = np.array([[1, 0], [0, np.exp(1j*np.pi/4)]], dtype=np.complex128)
-    cost = 20.0
+    cost = 1.0
     asm_name = 't'
 
 class TdgGate(OneQubitGate):
     unitary = np.array([[1, 0], [0, np.exp(-1j*np.pi/4)]], dtype=np.complex128)
-    cost = 20.0
+    cost = 1.0
     asm_name = 'tdg'
 
 class CNOTGate(ControlledGate):
     unitary = np.array([[0, 1], [1, 0]], dtype=np.complex128)
-    cost = 5.0
+    cost = 1.0
     asm_name = 'cx'
 
 
