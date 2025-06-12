@@ -209,7 +209,7 @@ class QCircuit(Environment):
         next_states = []
         for state, action in zip(states, actions):
             next_state = action.apply_to(state)
-            next_state.prev_actions.append(action)
+            next_state.prev_actions = [*(state.prev_actions), action]
             next_states.append(next_state)
 
         transition_costs = [x.cost for x in actions]
