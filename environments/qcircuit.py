@@ -12,6 +12,7 @@ class QState(State):
 
     def __init__(self, unitary: np.ndarray[np.complex128]):
         self.unitary = unitary
+        self.prev_actions = [None]
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -135,20 +136,28 @@ class QCircuit(Environment):
         Generates the action set for n qubits given a specific gate set
         by looping over each possible gate at each qubit
         """
-        self.actions: List[QAction] = []
-        for gate in self.gate_set:
-            # looping over each gate in the gate set
-            for i in range(self.num_qubits):
-                # looping over each qubit
-                if issubclass(gate, OneQubitGate):
-                    # if the gate only acts on one qubit,
-                    # add gate to all qubits once
-                    self.actions.append(gate(self.num_qubits, i))
-                elif issubclass(gate, ControlledGate):
-                    # if the gate is a controlled gate,
-                    # loop over each possible pair of qubits
-                    for j in range(self.num_qubits):
-                        if i != j: self.actions.append(gate(self.num_qubits, i, j))
+        # self.actions: List[QAction] = []
+        # for gate in self.gate_set:
+        #     # looping over each gate in the gate set
+        #     for i in range(self.num_qubits):
+        #         # looping over each qubit
+        #         if issubclass(gate, OneQubitGate):
+        #             # if the gate only acts on one qubit,
+        #             # add gate to all qubits once
+        #             self.actions.append(gate(self.num_qubits, i))
+        #         elif issubclass(gate, ControlledGate):
+        #             # if the gate is a controlled gate,
+        #             # loop over each possible pair of qubits
+        #             for j in range(self.num_qubits):
+        #                 if i != j: self.actions.append(gate(self.num_qubits, i, j))
+
+        # temporary fix for one qubit environment ONLY
+        self.actions: Dict[str, QAction] = dict()
+        self.actions['h'] = HGate(1, 0)
+        self.actions['s'] = SGate(1, 0)
+        self.actions['sdg'] = SdgGate(1, 0)
+        self.actions['t'] = TGate(1, 0)
+        self.actions['tdg'] = TdgGate(1, 0)
 
     def get_start_states(self, num_states: int) -> List[QState]:
         """
@@ -160,12 +169,47 @@ class QCircuit(Environment):
         return [QState(tensor_product([I] * self.num_qubits)) for _ in range(num_states)]
 
     def get_state_actions(self, states: List[QState]) -> List[List[QAction]]:
-        return [[x for x in self.actions] for _ in states]
+        # return [[x for x in self.actions] for _ in states]
+
+        # temporary fix for one qubit environment ONLY
+        actions = []
+        for x in states:
+            prev_action = x.prev_actions[-1]
+            match prev_action:
+                case TGate() | TdgGate():
+                    actions.append([
+                        self.actions['h'],
+                        self.actions['s'],
+                        self.actions['sdg'],
+                    ])
+                case HGate():
+                    actions.append([
+                        self.actions['s'],
+                        self.actions['sdg'],
+                        self.actions['t'],
+                        self.actions['tdg'],
+                    ])
+                case SGate() | SdgGate():
+                    actions.append([
+                        self.actions['h'],
+                        self.actions['t'],
+                        self.actions['tdg'],
+                    ])
+                case _:
+                    actions.append([
+                        self.actions['h'],
+                        self.actions['s'],
+                        self.actions['sdg'],
+                        self.actions['t'],
+                        self.actions['tdg'],
+                    ])
+        return actions
 
     def next_state(self, states: List[QState], actions: List[QAction]) -> Tuple[List[QState], List[float]]:
         next_states = []
         for state, action in zip(states, actions):
             next_state = action.apply_to(state)
+            next_state.prev_actions.append(action)
             next_states.append(next_state)
 
         transition_costs = [x.cost for x in actions]
