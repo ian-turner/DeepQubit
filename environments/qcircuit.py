@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from abc import ABC
 from typing import Self, Tuple, List, Dict
@@ -10,7 +11,7 @@ class QState(State):
     # tolerance for comparing unitaries between states
     epsilon: float = 1e-6
 
-    def __init__(self, unitary: np.ndarray[np.complex128]):
+    def __init__(self, unitary: torch.Tensor):
         self.unitary = unitary
     
     def __hash__(self):
@@ -24,7 +25,7 @@ class QGoal(Goal):
     # tolerance for comparing unitaries between goals
     epsilon: float = 1e-6
 
-    def __init__(self, unitary: np.ndarray[np.complex128]):
+    def __init__(self, unitary: torch.Tensor):
         self.unitary = unitary
     
     def __hash__(self):
@@ -35,19 +36,19 @@ class QGoal(Goal):
     
 
 class QAction(Action, ABC):
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
+    unitary: torch.Tensor
+    full_gate_unitary: torch.Tensor
     cost: float
     
     def apply_to(self, state: QState) -> QState:
-        new_state_unitary = np.matmul(self.full_gate_unitary, state.unitary).astype(np.complex128)
+        new_state_unitary = torch.matmul(self.full_gate_unitary, state.unitary)
         return QState(new_state_unitary)
 
 
 class OneQubitGate(QAction, ABC):
     qubit: int
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
+    unitary: torch.Tensor
+    full_gate_unitary: torch.Tensor
     
     def __init__(self, num_qubits: int, qubit: int):
         self.qubit = qubit
@@ -65,8 +66,8 @@ class OneQubitGate(QAction, ABC):
 class ControlledGate(QAction, ABC):
     control: int
     target: int
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
+    unitary: torch.Tensor
+    full_gate_unitary: torch.Tensor
 
     def __init__(self, num_qubits: int, control: int, target: int):
         self.control = control
@@ -90,47 +91,47 @@ class ControlledGate(QAction, ABC):
 
 
 class HGate(OneQubitGate):
-    unitary = np.array([[1, 1], [1, -1]], dtype=np.complex128) / np.sqrt(2)
+    unitary = torch.tensor([[1, 1], [1, -1]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 'h'
 
 class SGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, 1j]], dtype=np.complex128)
+    unitary = torch.tensor([[1, 0], [0, 1j]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 's'
 
 class SdgGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, -1j]], dtype=np.complex128)
+    unitary = torch.tensor([[1, 0], [0, -1j]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 'sdg'
     
 class TGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, np.exp(1j*np.pi/4)]], dtype=np.complex128)
+    unitary = torch.tensor([[1, 0], [0, torch.exp(torch.tensor(1j*torch.pi/4))]], device=t_device)
     cost = 1.0
     asm_name = 't'
 
 class TdgGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, np.exp(-1j*np.pi/4)]], dtype=np.complex128)
+    unitary = torch.tensor([[1, 0], [0, torch.exp(torch.tensor(-1j*torch.pi/4))]], device=t_device)
     cost = 1.0
     asm_name = 'tdg'
 
 class XGate(OneQubitGate):
-    unitary = np.array([[0, 1], [1, 0]], dtype=np.complex128)
+    unitary = torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 'x'
 
 class YGate(OneQubitGate):
-    unitary = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
+    unitary = torch.tensor([[0, -1j], [1j, 0]], device=t_device)
     cost = 1.0
     asm_name = 'y'
 
 class ZGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, -1]], dtype=np.complex128)
+    unitary = torch.tensor([[1, 0], [0, -1]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 'z'
 
 class CNOTGate(ControlledGate):
-    unitary = np.array([[0, 1], [1, 0]], dtype=np.complex128)
+    unitary = torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64, device=t_device)
     cost = 1.0
     asm_name = 'cx'
 
@@ -207,7 +208,7 @@ class QCircuit(Environment):
         return [unitary_distance(state.unitary, goal.unitary) <= self.epsilon \
                 for (state, goal) in zip(states, goals)]
 
-    def states_goals_to_nnet_input(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
+    def states_goals_to_nnet_input(self, states: List[QState], goals: List[QGoal]) -> List[torch.Tensor]:
         """
         Converts quantum state class objects to numpy arrays that can be
         converted to tensors for neural network training
@@ -220,8 +221,8 @@ class QCircuit(Environment):
         @param goals: List of quantum circuit goals
         @returns: List of numpy arrays of flattened state and unitaries (in float format)
         """
-        total_unitaries = [np.matmul(y.unitary, invert_unitary(x.unitary)) for (x, y) in zip(states, goals)]
-        return [np.vstack([unitary_to_nnet_input(x) for x in total_unitaries]).astype(float)]
+        total_unitaries = [torch.matmul(y.unitary, invert_unitary(x.unitary)) for (x, y) in zip(states, goals)]
+        return [torch.vstack([unitary_to_nnet_input(x) for x in total_unitaries]).float()]
 
     def get_v_nnet(self) -> HeurFnNNet:
         input_size: int = 2**(2*self.num_qubits + 1)
