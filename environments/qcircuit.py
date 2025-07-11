@@ -12,7 +12,7 @@ class QState(State):
     epsilon: float = 1e-6
 
     def __init__(self, unitary: torch.Tensor):
-        self.unitary = torch.tensor(unitary, device=t_device)
+        self.unitary = torch.tensor(unitary, device=t_device, dtype=torch.complex64, requires_grad=False)
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -26,7 +26,7 @@ class QGoal(Goal):
     epsilon: float = 1e-6
 
     def __init__(self, unitary: torch.Tensor):
-        self.unitary = torch.tensor(unitary, device=t_device)
+        self.unitary = torch.tensor(unitary, device=t_device, dtype=torch.complex64, requires_grad=False)
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -205,7 +205,7 @@ class QCircuit(Environment):
         @param goals: List of goals to check against
         @returns: List of bools representing solved/not-solved
         """
-        return [unitary_distance(state.unitary, goal.unitary) <= self.epsilon \
+        return [(unitary_distance(state.unitary, goal.unitary)).cpu().item() <= self.epsilon \
                 for (state, goal) in zip(states, goals)]
 
     def states_goals_to_nnet_input(self, states: List[QState], goals: List[QGoal]) -> List[torch.Tensor]:

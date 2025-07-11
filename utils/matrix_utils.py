@@ -84,9 +84,10 @@ def unitary_distance(U: torch.Tensor, C: torch.Tensor) -> float:
     
     # from paper 'Synthetiq: Fast and Versatile Quantum Circuit Synthesis'
     M = torch.ones(U.shape, dtype=torch.complex64, device=t_device)
-    tr_cu = torch.trace(torch.matmul(invert_unitary(M * C), M * U))
-    if tr_cu == 0.: tr_cu = torch.tensor(1., dtype=torch.complex64, device=t_device)
-    num = torch.norm(M * U - (tr_cu / torch.abs(tr_cu)) * M * C)
+    tr_cu = torch.trace(torch.matmul(invert_unitary(C), U))
+    if tr_cu == 0.:
+        tr_cu = torch.tensor(1., dtype=torch.complex64, device=t_device)
+    num = torch.norm(U - (tr_cu / torch.abs(tr_cu)) * C)
     d_sc = num / torch.sqrt(torch.norm(M))
     return d_sc
 
