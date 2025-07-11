@@ -12,7 +12,7 @@ class QState(State):
     epsilon: float = 1e-6
 
     def __init__(self, unitary: torch.Tensor):
-        self.unitary = torch.tensor(unitary, device=t_device, dtype=torch.complex64, requires_grad=False)
+        self.unitary = unitary
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -26,7 +26,7 @@ class QGoal(Goal):
     epsilon: float = 1e-6
 
     def __init__(self, unitary: torch.Tensor):
-        self.unitary = torch.tensor(unitary, device=t_device, dtype=torch.complex64, requires_grad=False)
+        self.unitary = unitary
     
     def __hash__(self):
         return hash_unitary(self.unitary)

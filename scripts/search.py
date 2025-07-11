@@ -6,6 +6,7 @@ import os
 from time import time
 from argparse import ArgumentParser
 import numpy as np
+import torch
 from typing import List
 from deepxube.search.astar import AStar, get_path
 from deepxube.nnet import nnet_utils
@@ -45,7 +46,7 @@ if __name__ == '__main__':
 
     # environment setup
     env: QCircuit = QCircuit(num_qubits=num_qubits, epsilon=args.epsilon)
-    goal_states: List[QGoal] = [QGoal(goal_matrix)]
+    goal_states: List[QGoal] = [QGoal(torch.tensor(goal_matrix, dtype=torch.complex64, device=t_device))]
     start_states: List[QState] = [QState(tensor_product([I] * num_qubits))]
     weights: List[float] = [args.path_weight]
 
