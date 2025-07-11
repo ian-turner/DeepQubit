@@ -228,11 +228,11 @@ class QCircuit(Environment):
         input_size: int = 2**(2*self.num_qubits + 1)
         match self.num_qubits, self.epsilon:
             case 1, 1e-2:
-                return ResnetModel(input_size, 0, 1000, 800, 3, 1, True)
+                return ResnetModel(input_size, 0, 2000, 1000, 3, 1, True)
             case 1, 1e-3:
-                return ResnetModel(input_size, 0, 1200, 1000, 4, 1, True)
+                return ResnetModel(input_size, 0, 3000, 1000, 4, 1, True)
             case 1, 1e-4:
-                return ResnetModel(input_size, 0, 2000, 1000, 4, 1, True)
+                return ResnetModel(input_size, 0, 4000, 1000, 4, 1, True)
             case _:
                 raise Exception('Environment not configured for >4 qubits')
 
