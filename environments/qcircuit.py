@@ -240,7 +240,10 @@ class QCircuit(Environment):
         else:
             u_flat = [x.flatten() for x in total_unitaries]
             u_final = [np.hstack([np.real(x), np.imag(x)]) for x in u_flat]
-            return [np.vstack(u_final)]
+            out = np.vstack(u_final)
+            if self.L > 0:
+                out = out / 2
+            return [out]
         
 
     def get_v_nnet(self) -> HeurFnNNet:
@@ -248,7 +251,7 @@ class QCircuit(Environment):
             N = 2**(2*self.num_qubits)-1
         else:
             N = 2**(2*self.num_qubits + 1)
-        return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
+        return ResnetModel(N, self.L, [2000, 3000, 5000][self.num_qubits-1], 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------
 
