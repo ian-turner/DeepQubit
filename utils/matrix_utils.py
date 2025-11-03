@@ -8,6 +8,7 @@ from qiskit import qasm2
 from qiskit.quantum_info import Operator
 from qiskit.synthesis import OneQubitEulerDecomposer
 from qiskit.circuit.library import U3Gate
+from utils.hurwitz import su_encode_to_features_np
 
 
 # identity matrix on one qubit
@@ -123,3 +124,16 @@ def random_unitary(dim: int) -> np.ndarray[np.complex128]:
 def invert_unitary(U: np.ndarray[np.complex128]) -> np.ndarray[np.complex128]:
     """Inverts a unitary matrix"""
     return U.conj().T
+
+
+def unitaries_to_nnet_input(Us: np.ndarray, encoding: str = 'matrix') -> np.ndarray:
+    """Converts a batch of unitaries to nnet input format"""
+    match encoding:
+        case 'matrix':
+            u_flat = [x.flatten() for x in Us]
+            u_final = [np.hstack([np.real(x), np.imag(x)]) for x in u_flat]
+            return np.vstack(u_final)
+        case 'hurwitz':
+            return su_encode_to_features_np(Us)
+        case 'quaternion':
+            pass

@@ -4,7 +4,6 @@ from typing import Self, Tuple, List, Dict
 from deepxube.environments.environment_abstract import Environment, State, Action, Goal, HeurFnNNet
 from utils.pytorch_models import ResnetModel
 from utils.matrix_utils import *
-from utils.hurwitz import su_encode_to_features_np
 from utils.perturb import perturb_unitary_random_batch_strict
 
 
@@ -146,11 +145,16 @@ class QCircuit(Environment):
                  L: int = 15):
         super(QCircuit, self).__init__(env_name='qcircuit')
         
-        self.L = L
-        self.perturb = perturb
+        self.L: bool = L
+        self.perturb: bool = perturb
         self.num_qubits: int = num_qubits
         self.epsilon: float = epsilon
-        self.hurwitz = hurwitz
+        self.hurwitz: bool = hurwitz
+
+        self.encoding = 'matrix'
+        if self.hurwitz:
+            self.encoding = 'hurwitz'
+
         if num_qubits == 1:
             self.gate_set = [HGate, SGate, TGate, XGate, YGate, ZGate]
         else:
@@ -234,23 +238,15 @@ class QCircuit(Environment):
         @returns: List of numpy arrays of flattened state and unitaries (in float format)
         """
         total_unitaries = np.array([phase_align(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)])
-        if self.hurwitz:
-            features = su_encode_to_features_np(total_unitaries)
-            return [features]
-        else:
-            u_flat = [x.flatten() for x in total_unitaries]
-            u_final = [np.hstack([np.real(x), np.imag(x)]) for x in u_flat]
-            out = np.vstack(u_final)
-            if self.L > 0:
-                out = out / 2
-            return [out]
+        inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
+        if self.encoding == 'matrix' and self.L > 0:
+            # temporary fix for collision error with NeRF and matrix encoding
+            inps = inps/2
+        return [inps]
         
-
     def get_v_nnet(self) -> HeurFnNNet:
-        if self.hurwitz:
-            N = 2**(2*self.num_qubits)-1
-        else:
-            N = 2**(2*self.num_qubits + 1)
+        if self.hurwitz: N = 2**(2 * self.num_qubits) - 1
+        else: N = 2**(2 * self.num_qubits + 1)
         return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------
