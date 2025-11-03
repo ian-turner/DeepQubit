@@ -233,7 +233,7 @@ class QCircuit(Environment):
         @param goals: List of quantum circuit goals
         @returns: List of numpy arrays of flattened state and unitaries (in float format)
         """
-        total_unitaries = np.array([(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)])
+        total_unitaries = np.array([phase_align(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)])
         if self.hurwitz:
             features = su_encode_to_features_np(total_unitaries)
             return [features]
