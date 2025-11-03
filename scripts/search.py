@@ -10,22 +10,8 @@ from typing import List
 from deepxube.search.astar import AStar, get_path
 from deepxube.nnet import nnet_utils
 from environments.qcircuit import *
-from utils.matrix_utils import *
-
-
-def path_to_qasm(path: List[QAction], num_qubits) -> str:
-    qasm_str = ''
-    qasm_str += 'OPENQASM 2.0;\n'
-    qasm_str +='include "qelib1.inc";\n'
-    qasm_str += 'qreg qubits[%d];\n' % num_qubits
-    for x in path_actions:
-        qasm_str += '%s ' % x.asm_name
-        if isinstance(x, OneQubitGate):
-            qasm_str += 'qubits[%d]' % x.qubit
-        elif isinstance(x, ControlledGate):
-            qasm_str += 'qubits[%d], qubits[%d]' % (x.control, x.target)
-        qasm_str += ';\n'
-    return qasm_str
+from utils.matrix_utils import load_matrix_from_file
+from utils.qasm_utils import *
 
 
 if __name__ == '__main__':
