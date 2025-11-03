@@ -251,7 +251,7 @@ class QCircuit(Environment):
             N = 2**(2*self.num_qubits)-1
         else:
             N = 2**(2*self.num_qubits + 1)
-        return ResnetModel(N, self.L, [2000, 3000, 5000][self.num_qubits-1], 1000, 4, 1, True)
+        return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------
 
