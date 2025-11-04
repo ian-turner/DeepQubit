@@ -5,6 +5,7 @@ from deepxube.environments.environment_abstract import Environment, State, Actio
 from utils.pytorch_models import ResnetModel
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
+from environments.gates import get_gate_set
 
 
 class QState(State):
@@ -36,22 +37,23 @@ class QGoal(Goal):
     
 
 class QAction(Action, ABC):
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
-    cost: float
-    
     def apply_to(self, state: QState) -> QState:
         new_state_unitary = np.matmul(self.full_gate_unitary, state.unitary).astype(np.complex128)
         return QState(new_state_unitary)
 
 
 class OneQubitGate(QAction, ABC):
-    qubit: int
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
-    
-    def __init__(self, num_qubits: int, qubit: int):
+    def __init__(self,
+                 num_qubits: int,
+                 qubit: int,
+                 unitary: np.ndarray,
+                 name: str,
+                 cost: float):
+        self.num_qubits = num_qubits
         self.qubit = qubit
+        self.unitary = unitary
+        self.name = name
+        self.cost = cost
         self._generate_full_unitary(num_qubits)
     
     def _generate_full_unitary(self, num_qubits: int):
@@ -60,18 +62,23 @@ class OneQubitGate(QAction, ABC):
         self.full_gate_unitary = tensor_product(mats)
 
     def __repr__(self) -> str:
-        return '%s(qubit=%d)' % (type(self).__name__, self.qubit)
+        return '%s(qubit=%d)' % (self.name, self.qubit)
     
 
 class ControlledGate(QAction, ABC):
-    control: int
-    target: int
-    unitary: np.ndarray[np.complex128]
-    full_gate_unitary: np.ndarray[np.complex128]
-
-    def __init__(self, num_qubits: int, control: int, target: int):
+    def __init__(self,
+                 num_qubits: int,
+                 control: int,
+                 target: int,
+                 unitary: np.ndarray,
+                 name: str,
+                 cost: float):
+        self.qubit = qubit
+        self.unitary = unitary
+        self.name = name
         self.control = control
         self.target = target
+        self.cost = cost
         self._generate_full_unitary(num_qubits)
 
     def _generate_full_unitary(self, num_qubits: int):
@@ -87,53 +94,7 @@ class ControlledGate(QAction, ABC):
         self.full_gate_unitary = p0_full + p1_full
 
     def __repr__(self) -> str:
-        return '%s(control=%d, target=%d)' % (type(self).__name__, self.target, self.control)
-
-
-class HGate(OneQubitGate):
-    unitary = np.array([[1, 1], [1, -1]], dtype=np.complex128) / np.sqrt(2)
-    cost = 1.0
-    asm_name = 'h'
-
-class SGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, 1j]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 's'
-
-class SdgGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, -1j]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'sdg'
-    
-class TGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, np.exp(1j*np.pi/4)]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 't'
-
-class TdgGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, np.exp(-1j*np.pi/4)]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'tdg'
-
-class XGate(OneQubitGate):
-    unitary = np.array([[0, 1], [1, 0]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'x'
-
-class YGate(OneQubitGate):
-    unitary = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'y'
-
-class ZGate(OneQubitGate):
-    unitary = np.array([[1, 0], [0, -1]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'z'
-
-class CNOTGate(ControlledGate):
-    unitary = np.array([[0, 1], [1, 0]], dtype=np.complex128)
-    cost = 1.0
-    asm_name = 'cx'
+        return '%s(control=%d, target=%d)' % (self.name, self.target, self.control)
 
 
 class QCircuit(Environment):
@@ -141,45 +102,41 @@ class QCircuit(Environment):
                  num_qubits: int,
                  epsilon: float = 0.01,
                  perturb: bool = False,
-                 hurwitz: bool = False,
+                 encoding: str = 'matrix',
+                 gateset: str = 't,s,h,x,y,z',
                  L: int = 15):
         super(QCircuit, self).__init__(env_name='qcircuit')
         
-        self.L: bool = L
-        self.perturb: bool = perturb
-        self.num_qubits: int = num_qubits
-        self.epsilon: float = epsilon
-        self.hurwitz: bool = hurwitz
+        self.L = L
+        self.perturb = perturb
+        self.num_qubits = num_qubits
+        self.epsilon = epsilon
+        self.encoding = encoding
 
-        self.encoding = 'matrix'
-        if self.hurwitz:
-            self.encoding = 'hurwitz'
+        self._generate_actions(gateset)
 
-        if num_qubits == 1:
-            self.gate_set = [HGate, SGate, TGate, XGate, YGate, ZGate]
-        else:
-            self.gate_set = [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
-        self._generate_actions()
-
-    def _generate_actions(self):
+    def _generate_actions(self, gateset: str):
         """
         Generates the action set for n qubits given a specific gate set
         by looping over each possible gate at each qubit
         """
+        gates = get_gate_set(gateset)
         self.actions: List[QAction] = []
-        for gate in self.gate_set:
+        for gate in gates:
             # looping over each gate in the gate set
             for i in range(self.num_qubits):
                 # looping over each qubit
-                if issubclass(gate, OneQubitGate):
-                    # if the gate only acts on one qubit,
-                    # add gate to all qubits once
-                    self.actions.append(gate(self.num_qubits, i))
-                elif issubclass(gate, ControlledGate):
+                if 'controlled' in gate and gate['controlled']:
                     # if the gate is a controlled gate,
                     # loop over each possible pair of qubits
                     for j in range(self.num_qubits):
-                        if i != j: self.actions.append(gate(self.num_qubits, i, j))
+                        if i != j:
+                            new_gate = ControlledGate(self.num_qubits, i, j, **gate)
+                            self.actions.append(new_gate)
+                else:
+                    # if the gate only acts on one qubit,
+                    # add gate to all qubits once
+                    self.actions.append(OneQubitGate(self.num_qubits, i, **gate))
 
     def get_start_states(self, num_states: int) -> List[QState]:
         """
@@ -237,7 +194,11 @@ class QCircuit(Environment):
         @param goals: List of quantum circuit goals
         @returns: List of numpy arrays of flattened state and unitaries (in float format)
         """
-        total_unitaries = np.array([phase_align(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)])
+        # calculating overall transformation from start to goal unitary
+        total_unitaries = [phase_align(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)]
+        total_unitaries = np.array(total_unitaries)
+
+        # converting to nnet input based on encoding
         inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
         if self.encoding == 'matrix' and self.L > 0:
             # temporary fix for collision error with NeRF and matrix encoding
@@ -245,8 +206,12 @@ class QCircuit(Environment):
         return [inps]
         
     def get_v_nnet(self) -> HeurFnNNet:
-        if self.hurwitz: N = 2**(2 * self.num_qubits) - 1
-        else: N = 2**(2 * self.num_qubits + 1)
+        # calculating nnet input size based on encoding
+        match (self.encoding):
+            case 'hurwitz':
+                N = 2**(2 * self.num_qubits) - 1
+            case 'matrix':
+                N = 2**(2 * self.num_qubits + 1)
         return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------

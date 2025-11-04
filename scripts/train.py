@@ -3,15 +3,13 @@ from argparse import ArgumentParser
 from deepxube.training import avi
 from environments.qcircuit import QCircuit
 
-# setting random seed to ensure reproducibility
-torch.manual_seed(123)
-
 
 if __name__ == '__main__':
     # parsing command line arguments
     parser = ArgumentParser()
     parser.add_argument('--nnet_dir', type=str, required=True)
     parser.add_argument('--num_qubits', type=int, required=True)
+    parser.add_argument('--encoding', type=str, default='matrix')
     parser.add_argument('--epsilon', type=float, default=0.01)
     parser.add_argument('--step_max', type=int, default=30)
     parser.add_argument('--batch_size', type=int, default=100)
@@ -20,7 +18,6 @@ if __name__ == '__main__':
     parser.add_argument('--greedy_update_step_max', type=int, default=5)
     parser.add_argument('--num_update_procs', type=int, default=5)
     parser.add_argument('--perturb', action='store_true')
-    parser.add_argument('--hurwitz', action='store_true')
     parser.add_argument('-L', '--nerf_dim', type=int, default=0)
     args = parser.parse_args()
     
@@ -30,7 +27,7 @@ if __name__ == '__main__':
         epsilon=args.epsilon,
         L=args.nerf_dim,
         perturb=args.perturb,
-        hurwitz=args.hurwitz,
+        encoding=args.encoding,
     )
 
     # running approximate value iteration

@@ -23,10 +23,11 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--max_steps', type=int, default=1e4)
     parser.add_argument('-b', '--batch_size', type=int, default=1000)
     parser.add_argument('-e', '--epsilon', type=float, default=1e-2)
-    parser.add_argument('-l', '--path_weight', type=float, default=0.2)
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
-    parser.add_argument('-H', '--hurwitz', default=False, action='store_true')
     parser.add_argument('-L', '--nerf_dim', type=int, default=0)
+    parser.add_argument('--path_weight', type=float, default=0.2)
+    parser.add_argument('--encoding', type=str, default='matrix') 
+    parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z')
     args = parser.parse_args()
 
     start_time = time()
@@ -38,7 +39,8 @@ if __name__ == '__main__':
     env: QCircuit = QCircuit(
         num_qubits=num_qubits,
         epsilon=args.epsilon,
-        hurwitz=args.hurwitz,
+        encoding=args.encoding,
+        gateset=args.gateset,
         L=args.nerf_dim,
     )
     goal_states: List[QGoal] = [QGoal(goal_matrix)]
@@ -72,7 +74,7 @@ if __name__ == '__main__':
         gate_count: int = len(path_actions)
         t_count: int = 0
         for x in path_actions:
-            if isinstance(x, TGate) or isinstance(x, TdgGate):
+            if x.name == 't' or x.name == 'tdg':
                 t_count += 1
 
         # converting circuit to OpenQASM 2.0
