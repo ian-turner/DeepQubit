@@ -200,7 +200,7 @@ class QCircuit(Environment):
 
         # converting to nnet input based on encoding
         inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
-        if self.encoding == 'matrix' and self.L > 0:
+        if (self.encoding == 'matrix' or self.encoding == 'quaternion') and self.L > 0:
             # temporary fix for collision error with NeRF and matrix encoding
             inps = inps/2
         return [inps]
@@ -212,6 +212,8 @@ class QCircuit(Environment):
                 N = 2**(2 * self.num_qubits) - 1
             case 'matrix':
                 N = 2**(2 * self.num_qubits + 1)
+            case 'quaternion':
+                N = 4
         return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------

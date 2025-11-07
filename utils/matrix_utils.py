@@ -118,4 +118,10 @@ def unitaries_to_nnet_input(Us: np.ndarray, encoding: str = 'matrix') -> np.ndar
         case 'hurwitz':
             return su_encode_to_features_np(Us)
         case 'quaternion':
-            pass
+            assert Us.shape[1] == 2 # only U(2) is accepted
+            a = np.real(Us[:, 0, 0]) # select real element of top-left entry
+            b = np.imag(Us[:, 0, 0]) # imag element of top-left entry
+            c = np.real(Us[:, 0, 1]) # real element of top-right entry
+            d = np.imag(Us[:, 0, 1]) # imag element of top-right entry
+            Q = np.array([a, b, c, d]).T # quaternion vectors for each U
+            return Q
