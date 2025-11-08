@@ -141,6 +141,18 @@ def quaternions_to_unitaries(Q: np.ndarray[float]) -> np.ndarray[np.complex128]:
     return Us
 
 
+def perturb_unitary(Us: np.ndarray[np.complex128], epsilon: float) -> np.ndarray[np.complex128]:
+    """Adds a random perturbation to a unitary U to get a unitary V
+    such that d(U,V) < epsilon"""
+    X = np.random.rand(100, 2, 2) + np.random.rand(100, 2, 2) * 1j
+    X_hat = np.transpose(X.conj(), axes=(0, 2, 1))
+    H0 = X + X_hat
+    H = epsilon * H0 * (1 / np.linalg.matrix_norm(H0))[:, None, None]
+    W = expm(1j*H)
+    Us_hat = Us @ W
+    return Us_hat
+
+
 def unitaries_to_nnet_input(Us: np.ndarray, encoding: str = 'matrix') -> np.ndarray:
     """Converts a batch of unitaries to nnet input format"""
     match encoding:
