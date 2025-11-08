@@ -108,20 +108,49 @@ def invert_unitary(U: np.ndarray[np.complex128]) -> np.ndarray[np.complex128]:
     return U.conj().T
 
 
+def phase_align_quaternion(Us: np.ndarray[np.complex128]) -> np.ndarray[np.complex128]:
+    """Aligns phase so that quaternion encoding works properly"""
+    theta1 = np.angle(Us[:, 0, 0])
+    theta2 = np.angle(Us[:, 1, 1])
+    theta_tilde = theta1 + theta2
+    exp_theta = np.exp(-1j * theta_tilde / 2)
+    return exp_theta[:, None, None] * Us
+
+
+def unitaries_to_quaternions(Us: np.ndarray[np.complex128]) -> np.ndarray[float]:
+    """Converts U(2) -> SU(2) -> Quaternions based on representation in
+    `Quantum logic gate synthesis as a Markov decision process` (Alam, 2023)"""
+    assert Us.shape[1] == 2 # only U(2) is accepted
+    Us = phase_align_quaternion(Us)
+    a = np.real(Us[:, 0, 0]) # select real element of top-left entry
+    b = np.imag(Us[:, 0, 0]) # imag element of top-left entry
+    c = np.real(Us[:, 0, 1]) # real element of top-right entry
+    d = np.imag(Us[:, 0, 1]) # imag element of top-right entry
+    Q = np.array([a, b, c, d]).T # quaternion vectors for each U
+    return Q
+
+
+def quaternions_to_unitaries(Q: np.ndarray[float]) -> np.ndarray[np.complex128]:
+    """Converts quaternion representation back to unitary
+    for debugging and testing quaternion encoding"""
+    Us = np.zeros((Q.shape[0], 2, 2), dtype=np.complex64)
+    Us[:, 0, 0] = Q[:, 0] + 1j * Q[:, 1]
+    Us[:, 0, 1] = Q[:, 2] + 1j * Q[:, 3]
+    Us[:, 1, 0] = -Q[:, 2] + 1j * Q[:, 3]
+    Us[:, 1, 1] = Q[:, 0] - 1j * Q[:, 1]
+    return Us
+
+
 def unitaries_to_nnet_input(Us: np.ndarray, encoding: str = 'matrix') -> np.ndarray:
     """Converts a batch of unitaries to nnet input format"""
     match encoding:
         case 'matrix':
+            for i, U in enumerate(Us):
+                Us[i] = phase_align(U)
             u_flat = [x.flatten() for x in Us]
             u_final = [np.hstack([np.real(x), np.imag(x)]) for x in u_flat]
             return np.vstack(u_final)
         case 'hurwitz':
             return su_encode_to_features_np(Us)
         case 'quaternion':
-            assert Us.shape[1] == 2 # only U(2) is accepted
-            a = np.real(Us[:, 0, 0]) # select real element of top-left entry
-            b = np.imag(Us[:, 0, 0]) # imag element of top-left entry
-            c = np.real(Us[:, 0, 1]) # real element of top-right entry
-            d = np.imag(Us[:, 0, 1]) # imag element of top-right entry
-            Q = np.array([a, b, c, d]).T # quaternion vectors for each U
-            return Q
+            return unitaries_to_quaternions(Us)

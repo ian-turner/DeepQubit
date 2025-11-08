@@ -195,8 +195,7 @@ class QCircuit(Environment):
         @returns: List of numpy arrays of flattened state and unitaries (in float format)
         """
         # calculating overall transformation from start to goal unitary
-        total_unitaries = [phase_align(y.unitary @ invert_unitary(x.unitary)) for (x, y) in zip(states, goals)]
-        total_unitaries = np.array(total_unitaries)
+        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
 
         # converting to nnet input based on encoding
         inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
