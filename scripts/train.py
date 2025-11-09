@@ -9,8 +9,12 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--nnet_dir', type=str, required=True)
     parser.add_argument('--num_qubits', type=int, required=True)
-    parser.add_argument('--encoding', type=str, default='matrix')
-    parser.add_argument('--epsilon', type=float, default=0.01)
+    parser.add_argument('--encoding', type=str, default='matrix',
+                        choices=['matrix', 'hurwitz', 'quaternion', 'discrete'],
+                        help='Encoding method of unitary matrix before passing to NNet')
+    parser.add_argument('--epsilon', type=float, default=0.01,
+                        help='Tolerance value for solved condition')
+    parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z')
     parser.add_argument('--step_max', type=int, default=30)
     parser.add_argument('--batch_size', type=int, default=100)
     parser.add_argument('--itrs_per_update', type=int, default=1000)

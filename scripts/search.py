@@ -26,7 +26,9 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument('-L', '--nerf_dim', type=int, default=0)
     parser.add_argument('--path_weight', type=float, default=0.2)
-    parser.add_argument('--encoding', type=str, default='matrix') 
+    parser.add_argument('--encoding', type=str, default='matrix',
+                        choices=['matrix', 'hurwitz', 'quaternion', 'discrete'],
+                        help='Encoding method of unitary matrix before passing to NNet')
     parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z')
     args = parser.parse_args()
 
