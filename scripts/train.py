@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # overriding default config options with command line arguments
     for x in args:
         y = args[x]
-        if y != None:
+        if y != None and y != False:
             config[x] = y
 
     # environment setup
