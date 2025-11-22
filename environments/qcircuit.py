@@ -4,6 +4,7 @@ from typing import Self, Tuple, List, Dict
 from deepxube.environments.environment_abstract import Environment, State, Action, Goal, HeurFnNNet
 from utils.pytorch_models import ResnetModel
 from utils.matrix_utils import *
+from utils.perturb import perturb_unitary_random_batch_strict
 from environments.gates import get_gate_set
 
 
@@ -163,7 +164,9 @@ class QCircuit(Environment):
         Creates goal objects from state-goal pairs
         """
         U_b = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states_start, states_goal)])
-        if self.perturb: return [QGoal(perturb_unitary(U_b, self.epsilon)) for x in U_pt]
+        if self.perturb:
+            U_pt = perturb_unitary_random_batch_strict(U_b, (1/np.sqrt(2)) * self.epsilon)
+            return [QGoal(x) for x in U_pt]
         else: return [QGoal(x) for x in U_b]
     
     def is_solved(self, states: List[QState], goals: List[QGoal]) -> List[bool]:

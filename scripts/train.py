@@ -45,7 +45,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # overriding default config options from config file
-    if 'config' in args:
+    if 'config' in args and args['config'] != None:
         with open(args['config'], 'r') as f:
             config_yaml = yaml.safe_load(f.read())
             for x in config_yaml:

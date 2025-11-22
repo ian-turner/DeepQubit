@@ -22,6 +22,16 @@ gates = {
         'unitary': np.array([[1, 0],
                              [0, np.exp(1j*np.pi/4)]], dtype=np.complex64),
     },
+    't10': {
+        'cost': 10.0,
+        'unitary': np.array([[1, 0],
+                             [0, np.exp(1j*np.pi/4)]], dtype=np.complex64),
+    },
+    't100': {
+        'cost': 100.0,
+        'unitary': np.array([[1, 0],
+                             [0, np.exp(1j*np.pi/4)]], dtype=np.complex64),
+    },
     'tdg': {
         'cost': 1.0,
         'unitary': np.array([[1, 0],
