@@ -73,7 +73,6 @@ class ControlledGate(QAction, ABC):
                  unitary: np.ndarray,
                  name: str,
                  cost: float):
-        self.qubit = qubit
         self.unitary = unitary
         self.name = name
         self.control = control
@@ -131,7 +130,8 @@ class QCircuit(Environment):
                     # loop over each possible pair of qubits
                     for j in range(self.num_qubits):
                         if i != j:
-                            new_gate = ControlledGate(self.num_qubits, i, j, **gate)
+                            new_gate = ControlledGate(self.num_qubits, i, j, name=gate['name'],
+					  	      cost=gate['cost'], unitary=gate['unitary'])
                             self.actions.append(new_gate)
                 else:
                     # if the gate only acts on one qubit,
@@ -212,7 +212,7 @@ class QCircuit(Environment):
                 N = 2**(2 * self.num_qubits + 1)
             case 'quaternion':
                 N = 4
-        return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
+        return ResnetModel(N, self.L, 1000, 600, 2, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------
 
