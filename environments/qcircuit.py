@@ -212,7 +212,7 @@ class QCircuit(Environment):
                 N = 2**(2 * self.num_qubits + 1)
             case 'quaternion':
                 N = 4
-        return ResnetModel(N, self.L, 1000, 600, 2, 1, True)
+        return ResnetModel(N, self.L, 2000, 1000, 4, 1, True)
 
     # ------------------- NOT IMPLEMENTED -------------------
 
