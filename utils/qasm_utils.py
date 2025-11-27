@@ -8,7 +8,10 @@ def path_to_qasm(path: List[QAction], num_qubits) -> str:
     qasm_str +='include "qelib1.inc";\n'
     qasm_str += 'qreg qubits[%d];\n' % num_qubits
     for x in path:
-        qasm_str += '%s ' % x.name
+        name = x.name
+        if x.name == 't10' or x.name == 't100':
+            name = 't'
+        qasm_str += '%s ' % name
         if isinstance(x, OneQubitGate):
             qasm_str += 'qubits[%d]' % x.qubit
         elif isinstance(x, ControlledGate):
