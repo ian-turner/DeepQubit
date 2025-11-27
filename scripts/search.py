@@ -103,7 +103,7 @@ if __name__ == '__main__':
         gate_count: int = len(path_actions)
         t_count: int = 0
         for x in path_actions:
-            if x.name == 't' or x.name == 'tdg':
+            if x.name in ['t', 'tdg', 't10', 't100']:
                 t_count += 1
 
         # converting circuit to OpenQASM 2.0
