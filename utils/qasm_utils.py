@@ -18,7 +18,7 @@ def path_to_qasm(path: List[QAction], num_qubits) -> str:
 
 
 def qasm_to_matrix(qasm_str: str) -> np.ndarray[np.complex128]:
-    return Operator(qasm2.loads(qasm_str)).data
+    return Operator(qasm2.loads(qasm_str).reverse_bits()).data
 
 
 def seq_to_matrix(seq: str) -> np.ndarray[np.complex128]:
