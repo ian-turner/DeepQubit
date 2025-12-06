@@ -16,6 +16,7 @@ config = {
     'itrs_per_update': 1000,
     'max_itrs': 1e5,
     'greedy_update_step_max': 100,
+    'num_test_per_step': 30,
     'num_update_procs': 10,
     'perturb': False,
     'nerf_dim': 0,
@@ -39,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--itrs_per_update', type=int)
     parser.add_argument('--max_itrs', type=int)
     parser.add_argument('--greedy_update_step_max', type=int)
+    parser.add_argument('--num_test_per_step', type=int)
     parser.add_argument('--num_update_procs', type=int)
     parser.add_argument('--perturb', action='store_true')
     parser.add_argument('-L', '--nerf_dim', type=int)
@@ -84,4 +86,5 @@ if __name__ == '__main__':
         max_itrs=config['max_itrs'],
         greedy_update_step_max=config['greedy_update_step_max'],
         num_update_procs=config['num_update_procs'],
+        num_test_per_step=config['num_test_per_step'],
     )

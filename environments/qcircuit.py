@@ -195,13 +195,14 @@ class QCircuit(Environment):
         """
         # calculating overall transformation from start to goal unitary
         total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
         # converting to nnet input based on encoding
-        inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
-        if (self.encoding == 'matrix' or self.encoding == 'quaternion') and self.L > 0:
-            # temporary fix for collision error with NeRF and matrix encoding
-            inps = inps/2
-        return [inps]
+#        inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
+#        if (self.encoding == 'matrix' or self.encoding == 'quaternion') and self.L > 0:
+#            # temporary fix for collision error with NeRF and matrix encoding
+#            inps = inps/2
+#        return [inps]
         
     def get_v_nnet(self) -> HeurFnNNet:
         # calculating nnet input size based on encoding
