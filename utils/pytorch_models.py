@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from einops import repeat
 from typing import List
-from deepxube.environments.environment_abstract import HeurFnNNet
+from deepxube.base.heuristic import HeurNNetModule, HeurNNetV, HeurNNetQFixOut, HeurNNetQIn
 from deepxube.nnet.pytorch_models import ResnetModel
 
 
@@ -29,10 +29,10 @@ class NeRFEmbedding(nn.Module):
         return interleaved
 
 
-class ResnetModel(HeurFnNNet):
+class ResnetModel(HeurNNetModule):
     def __init__(self, input_size: int, L: int, h1_dim: int, resnet_dim: int, num_resnet_blocks: int,
                  out_dim: int, batch_norm: bool):
-        super(ResnetModel, self).__init__(nnet_type='V')
+        super(ResnetModel, self).__init__()
         self.L = L
         self.num_resnet_blocks = num_resnet_blocks
         self.batch_norm = batch_norm

@@ -7,8 +7,10 @@ import yaml
 from time import time
 from argparse import ArgumentParser
 import numpy as np
-from typing import List
-from deepxube.search.astar import AStar, get_path
+from typing import List, cast
+from deepxube.pathfinding.v.bwas import BWASEnum, InstanceBWAS
+from deepxube.base.pathfinding import get_path
+from deepxube.base.heuristic import HeurNNet
 from deepxube.nnet import nnet_utils
 from environments.qcircuit import *
 from utils.matrix_utils import load_matrix_from_file
@@ -78,13 +80,15 @@ if __name__ == '__main__':
 
     # loading heuristic function
     device, devices, on_gpu = nnet_utils.get_device()
-    nnet_weights_file: str = os.path.join(config['nnet_dir'], 'target.pt')
-    heuristic_fn = nnet_utils.load_heuristic_fn(nnet_weights_file, device, \
-                                                on_gpu, env.get_v_nnet(), env)
+    nnet_weights_file: str = os.path.join(config['nnet_dir'], 'heur_targ.pt')
+    heur_fn = QCircuitNNetParV(num_qubits, config['nerf_dim'], config['encoding'])
+    nnet = nnet_utils.load_nnet(nnet_weights_file, heur_fn.get_nnet(), device)
 
     # setup A* search
-    astar = AStar(env)
-    astar.add_instances(start_states, goal_states, weights, heuristic_fn)
+    astar = BWASEnum(env, heur_fn)
+    root_nodes = astar.create_root_nodes(start_states, goal_states)
+    breakpoint()
+    astar.add_instances([InstanceBWAS(start_states[0], goals_states[0], config['batch_size'], 0.2, 0.1, None)])
     print('Setup took %.3f seconds' % (time() - start_time))
 
     start_time = time()
@@ -92,7 +96,7 @@ if __name__ == '__main__':
     # running search
     step: int = 0
     while np.any([not x.finished for x in astar.instances]) and step < config['max_steps']:
-        astar.step(heuristic_fn, config['batch_size'], verbose=args['verbose'])
+        astar.step(config['batch_size'], verbose=args['verbose'])
         step += 1
     
     # getting path

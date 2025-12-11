@@ -1,13 +1,19 @@
 import os
+import yaml
 import torch
 from argparse import ArgumentParser
-from deepxube.training import avi
-from environments.qcircuit import QCircuit
-import yaml
+from deepxube.training.train_utils import TrainArgs
+from deepxube.training.train_heur import train
+from deepxube.base.updater import UpdateHeur, UpArgs, UpHeurArgs
+from deepxube.updater.updaters import UpdateHeurBWASEnum, UpdateHeurBWQSEnum, \
+                                      UpdateHeurGrPolQEnum, UpdateHeurStepLenSup, UpBWASArgs
+
+from environments.qcircuit import QCircuit, QCircuitNNetParV
 
 
 config = {
     'num_qubits': 1,
+    'heur_type': 'V',
     'encoding': 'matrix',
     'epsilon': 0.01,
     'gateset': 't,s,h,x,y,z',
@@ -76,15 +82,16 @@ if __name__ == '__main__':
     with open(config_file_copy, 'w') as f:
         yaml.safe_dump(config, f)
 
-    # running approximate value iteration
-    avi.train(
-        env=env,
-        nnet_dir=config['nnet_dir'],
-        step_max=config['step_max'],
-        batch_size=config['batch_size'],
-        itrs_per_update=config['itrs_per_update'],
-        max_itrs=config['max_itrs'],
-        greedy_update_step_max=config['greedy_update_step_max'],
-        num_update_procs=config['num_update_procs'],
-        num_test_per_step=config['num_test_per_step'],
-    )
+    # updater setup
+    up_args = UpArgs(config['step_max'], config['itrs_per_update'], config['itrs_per_update'],
+                     config['num_update_procs'], config['greedy_update_step_max'], config['batch_size'],
+                     config['batch_size'], False)
+    up_heur_args = UpHeurArgs(up_args, False, 1)
+    up_bwas_args = UpBWASArgs(up_heur_args, 0.2, 0.1)
+    updater = UpdateHeurBWASEnum(env, up_bwas_args, QCircuitNNetParV(config['num_qubits'], \
+                                                    config['nerf_dim'], config['encoding']))
+
+    # running training
+    train_args: TrainArgs = TrainArgs(config['batch_size'], 0.001, 0.9999993, config['max_itrs'],
+                                      False, 1, 0, 0.02, -1)
+    train(updater, config['nnet_dir'], train_args, debug=True)

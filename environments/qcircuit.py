@@ -1,7 +1,10 @@
 import numpy as np
 from abc import ABC
 from typing import Self, Tuple, List, Dict
-from deepxube.environments.environment_abstract import Environment, State, Action, Goal, HeurFnNNet
+from deepxube.base.env import (EnvGrndAtoms, State, Action, Goal, EnvSupportsPDDL, EnvStartGoalRW, EnvEnumerableActs,
+                               EnvVizable)
+from deepxube.base.heuristic import HeurNNetModule, HeurNNetV, HeurNNetQ, HeurNNetQFixOut, HeurNNetQIn
+
 from utils.pytorch_models import ResnetModel
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
@@ -37,9 +40,17 @@ class QGoal(Goal):
     
 
 class QAction(Action, ABC):
+    epsilon: float = 1e-6
+
     def apply_to(self, state: QState) -> QState:
         new_state_unitary = np.matmul(self.full_gate_unitary, state.unitary).astype(np.complex128)
         return QState(new_state_unitary)
+
+    def __eq__(self, other):
+        return unitary_distance(self.full_gate_unitary, other.full_gate_unitary) <= self.epsilon
+
+    def __hash__(self):
+        return hash_unitary(self.full_gate_unitary)
 
 
 class OneQubitGate(QAction, ABC):
@@ -96,7 +107,33 @@ class ControlledGate(QAction, ABC):
         return '%s(control=%d, target=%d)' % (self.name, self.target, self.control)
 
 
-class QCircuit(Environment):
+class QCircuitNNetParV(HeurNNetV[QState, QGoal]):
+    def __init__(self, n: int, L: int = 0, encoding: str = 'matrix'):
+        self.n = n
+        self.L = L
+        self.encoding = encoding
+
+        match (encoding):
+            case 'hurwitz':
+                self.N = 2**(2 * n) - 1
+            case 'matrix':
+                self.N = 2**(2 * n + 1)
+            case 'quaternion':
+                self.N = 4
+
+    def get_nnet(self) -> HeurNNetModule:
+        return ResnetModel(self.N, self.L, [2000, 2000, 4000][self.n], 1000, 4, 1, True)
+
+    def to_np(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray]:
+        # calculating overall transformation from start to goal unitary
+        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
+
+        # converting to nnet input based on encoding
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
+
+
+class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
+               EnvEnumerableActs[QState, QAction, QGoal]):
     def __init__(self,
                  num_qubits: int,
                  epsilon: float = 0.01,
@@ -104,7 +141,7 @@ class QCircuit(Environment):
                  encoding: str = 'matrix',
                  gateset: str = 't,s,h,x,y,z',
                  L: int = 15):
-        super(QCircuit, self).__init__(env_name='qcircuit')
+        super(QCircuit, self).__init__()
         
         self.L = L
         self.perturb = perturb
@@ -195,16 +232,11 @@ class QCircuit(Environment):
         """
         # calculating overall transformation from start to goal unitary
         total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
         # converting to nnet input based on encoding
-#        inps = unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)
-#        if (self.encoding == 'matrix' or self.encoding == 'quaternion') and self.L > 0:
-#            # temporary fix for collision error with NeRF and matrix encoding
-#            inps = inps/2
-#        return [inps]
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
         
-    def get_v_nnet(self) -> HeurFnNNet:
+    def get_v_nnet(self) -> HeurNNetV:
         # calculating nnet input size based on encoding
         match (self.encoding):
             case 'hurwitz':
@@ -217,7 +249,7 @@ class QCircuit(Environment):
 
     # ------------------- NOT IMPLEMENTED -------------------
 
-    def get_q_nnet(self) -> HeurFnNNet:
+    def get_q_nnet(self) -> HeurNNetQ:
         raise NotImplementedError()
     
     def get_pddl_domain(self):
