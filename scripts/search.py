@@ -79,8 +79,8 @@ if __name__ == '__main__':
     # setup A* search
     astar = BWASEnum(env=env,
                      heur_fn=heur_fn.get_nnet_fn(nnet=nnet,
-                                                 batch_size=config['batch_size'],
                                                  device=device,
+                                                 batch_size=None,
                                                  update_num=None))
     root_node = astar.create_root_nodes(start_states, goal_states, compute_init_heur=False)[0]
     astar.add_instances([InstanceBWAS(root_node=root_node,
