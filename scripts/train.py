@@ -92,7 +92,7 @@ if __name__ == '__main__':
                               backup=config['backup'])
 
     updater = None
-    if config['nnet_type'] == 'v':
+    if config['up_v']:
         up_bwas_args = UpBWASArgs(up_heur_args=up_heur_args,
                                   weight=config['up_weight'],
                                   eps=config['up_eps'])
