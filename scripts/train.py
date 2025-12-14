@@ -43,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_max_itrs', type=int, default=1e6)
     parser.add_argument('--train_balance_steps', action='store_true')
     parser.add_argument('--train_rb', type=int, default=1)
+    parser.add_argument('--train_display', type=int, default=-1)
     parser.add_argument('-L', '--nerf_dim', type=int, default=0)
     config = vars(parser.parse_args())
 
@@ -107,5 +108,5 @@ if __name__ == '__main__':
                                       rb=config['train_rb'],
                                       targ_up_searches=0,
                                       loss_thresh=0.02,
-                                      display=True)
+                                      display=config['train_display'])
     train(updater, config['nnet_dir'], train_args, debug=True)
