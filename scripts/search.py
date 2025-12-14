@@ -85,18 +85,17 @@ if __name__ == '__main__':
     nnet = nnet_utils.load_nnet(nnet_weights_file, heur_fn.get_nnet(), device)
 
     # setup A* search
-    astar = BWASEnum(env, heur_fn)
-    root_nodes = astar.create_root_nodes(start_states, goal_states)
-    breakpoint()
-    astar.add_instances([InstanceBWAS(start_states[0], goals_states[0], config['batch_size'], 0.2, 0.1, None)])
+    astar = BWASEnum(env, heur_fn.get_nnet_fn(heur_fn.get_nnet(), config['batch_size'], 'cpu', 0))
+    root_node = astar.create_root_nodes(start_states, goal_states, compute_init_heur=False)[0]
+    astar.add_instances([InstanceBWAS(root_node, config['batch_size'], 0.2, 0.1, None)])
     print('Setup took %.3f seconds' % (time() - start_time))
 
     start_time = time()
 
     # running search
     step: int = 0
-    while np.any([not x.finished for x in astar.instances]) and step < config['max_steps']:
-        astar.step(config['batch_size'], verbose=args['verbose'])
+    while np.any([not x.finished() for x in astar.instances]) and step < config['max_steps']:
+        astar.step(verbose=args['verbose'])
         step += 1
     
     # getting path
