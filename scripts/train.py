@@ -5,10 +5,9 @@ from argparse import ArgumentParser
 from deepxube.training.train_utils import TrainArgs
 from deepxube.training.train_heur import train
 from deepxube.base.updater import UpdateHeur, UpArgs, UpHeurArgs
-from deepxube.updater.updaters import UpdateHeurBWASEnum, UpdateHeurBWQSEnum, \
-                                      UpdateHeurGrPolQEnum, UpdateHeurStepLenSup, UpBWASArgs
+from deepxube.updater.updaters import UpdateHeurBWASEnum, UpdateHeurBWQSEnum, UpBWASArgs
 
-from environments.qcircuit import QCircuit, QCircuitNNetParV
+from environments.qcircuit import QCircuit, QCircuitNNetParV, QCircuitNNetParQ
 
 
 if __name__ == '__main__':
@@ -23,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=float, default=0.01,
                         help='Tolerance value for solved condition')
     parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z,cx')
+    parser.add_argument('--nnet_type', type=str, default='v')
     parser.add_argument('--step_max', type=int, default=100)
     parser.add_argument('--up_itrs', type=int, default=100)
     parser.add_argument('--up_gen_itrs', type=int, default=100)
@@ -35,8 +35,8 @@ if __name__ == '__main__':
     parser.add_argument('--ub_heur_solns', action='store_true')
     parser.add_argument('--backup', type=int, default=1)
     parser.add_argument('--perturb', action='store_true')
-    parser.add_argument('--up_bwas_weight', type=float, default=0.2)
-    parser.add_argument('--up_bwas_eps', type=float, default=0.0)
+    parser.add_argument('--up_weight', type=float, default=0.2)
+    parser.add_argument('--up_eps', type=float, default=0.0)
     parser.add_argument('--train_batch_size', type=int, default=1000)
     parser.add_argument('--train_lr', type=float, default=0.001)
     parser.add_argument('--train_lr_d', type=float, default=0.9999993)
@@ -90,14 +90,26 @@ if __name__ == '__main__':
     up_heur_args = UpHeurArgs(up_args=up_args,
                               ub_heur_solns=config['ub_heur_solns'],
                               backup=config['backup'])
-    up_bwas_args = UpBWASArgs(up_heur_args=up_heur_args,
-                              weight=config['up_bwas_weight'],
-                              eps=config['up_bwas_eps'])
-    updater = UpdateHeurBWASEnum(env=env,
-                                 up_bwas_args=up_bwas_args,
-                                 heur_nnet=QCircuitNNetParV(n=config['num_qubits'],
-                                                            L=config['nerf_dim'],
-                                                            encoding=config['encoding']))
+
+    updater = None
+    if config['nnet_type'] == 'v':
+        up_bwas_args = UpBWASArgs(up_heur_args=up_heur_args,
+                                  weight=config['up_weight'],
+                                  eps=config['up_eps'])
+        updater = UpdateHeurBWASEnum(env=env,
+                                     up_bwas_args=up_bwas_args,
+                                     heur_nnet=QCircuitNNetParV(n=config['num_qubits'],
+                                                                L=config['nerf_dim'],
+                                                                encoding=config['encoding']))
+    else:
+        updater = UpdateHeurBWQSEnum(env=env,
+                                     eps=config['up_eps'],
+                                     up_heur_args=up_heur_args,
+                                     heur_nnet=QCircuitNNetParQ(n=config['num_qubits'],
+                                                                L=config['nerf_dim'],
+                                                                encoding=config['encoding'],
+                                                                output_dim=len(env.actions)))
+
 
     # running training
     train_args: TrainArgs = TrainArgs(batch_size=config['train_batch_size'],

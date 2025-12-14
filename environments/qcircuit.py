@@ -134,6 +134,39 @@ class QCircuitNNetParV(HeurNNetV[QState, QGoal]):
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
 
+class QCircuitNNetParQ(HeurNNetQFixOut[QState, QGoal, QAction]):
+    def __init__(self, n: int, output_dim: int, L: int = 0, encoding: str = 'matrix'):
+        self.n = n
+        self.L = L
+        self.encoding = encoding
+        self.output_dim = output_dim
+
+        match (encoding):
+            case 'hurwitz':
+                self.N = 2**(2 * n) - 1
+            case 'matrix':
+                self.N = 2**(2 * n + 1)
+            case 'quaternion':
+                self.N = 4
+            case _:
+                raise Exception('Invalid encoding `%s`' % self.encoding)
+
+    def get_nnet(self) -> HeurNNetModule:
+        return ResnetModel(self.N, self.L, [2000, 2000, 4000][self.n], 1000, 4, self.output_dim, True)
+
+    def _to_np_fixed_acts(self, states: List[QState], goals: List[QGoal], actions_l: List[QAction]) -> List[np.ndarray]:
+        # calculating overall transformation from start to goal unitary
+        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
+        num_actions = len(actions_l[0])
+        actions_np = np.zeros((len(states), num_actions)).astype(int)
+
+        for i in range(len(states)):
+            actions_np[i] = np.array([action.action for action in actions_l[i]])
+
+        # converting to nnet input based on encoding
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding), actions_np]
+
+
 class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
                EnvEnumerableActs[QState, QAction, QGoal]):
     def __init__(self,
@@ -160,6 +193,7 @@ class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
         """
         gates = get_gate_set(gateset)
         self.actions: List[QAction] = []
+        k = 0
         for gate in gates:
             # looping over each gate in the gate set
             for i in range(self.num_qubits):
@@ -171,11 +205,16 @@ class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
                         if i != j:
                             new_gate = ControlledGate(self.num_qubits, i, j, name=gate['name'],
 					  	      cost=gate['cost'], unitary=gate['unitary'])
+                            new_gate.action = k
                             self.actions.append(new_gate)
+                            k += 1
                 else:
                     # if the gate only acts on one qubit,
                     # add gate to all qubits once
-                    self.actions.append(OneQubitGate(self.num_qubits, i, **gate))
+                    new_gate = OneQubitGate(self.num_qubits, i, **gate)
+                    new_gate.action = k
+                    self.actions.append(new_gate)
+                    k += 1
 
     def get_start_states(self, num_states: int) -> List[QState]:
         """
