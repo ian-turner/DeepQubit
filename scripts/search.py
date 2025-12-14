@@ -40,11 +40,12 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epsilon', type=float)
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     parser.add_argument('-L', '--nerf_dim', type=int)
-    parser.add_argument('--path_weight', type=float)
+    parser.add_argument('--path_weight', type=float, default=0.2)
+    parser.add_argument('--search_eps', type=float, default=0.1)
     parser.add_argument('--encoding', type=str,
                         choices=['matrix', 'hurwitz', 'quaternion', 'discrete'],
                         help='Encoding method of unitary matrix before passing to NNet')
-    parser.add_argument('--gateset', type=str)
+    parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z,cx')
     args = vars(parser.parse_args())
 
     # overriding default config options from config file
@@ -85,9 +86,9 @@ if __name__ == '__main__':
     nnet = nnet_utils.load_nnet(nnet_weights_file, heur_fn.get_nnet(), device)
 
     # setup A* search
-    astar = BWASEnum(env, heur_fn.get_nnet_fn(heur_fn.get_nnet(), config['batch_size'], 'cpu', 0))
+    astar = BWASEnum(env, heur_fn.get_nnet_fn(heur_fn.get_nnet(), config['batch_size'], device, 0))
     root_node = astar.create_root_nodes(start_states, goal_states, compute_init_heur=False)[0]
-    astar.add_instances([InstanceBWAS(root_node, config['batch_size'], 0.2, 0.1, None)])
+    astar.add_instances([InstanceBWAS(root_node, config['batch_size'], config['path_weight'], config['search_eps'], None)])
     print('Setup took %.3f seconds' % (time() - start_time))
 
     start_time = time()
