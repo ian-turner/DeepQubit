@@ -17,55 +17,43 @@ from utils.matrix_utils import load_matrix_from_file
 from utils.qasm_utils import *
 
 
-config = {
-    'max_steps': 1000,
-    'batch_size': 1000,
-    'epsilon': 0.01,
-    'nerf_dim': 0,
-    'path_weight': 0.2,
-    'encoding': 'matrix',
-    'gateset': 't,s,h,x,y,z',
-}
-
-
 if __name__ == '__main__':
     # parsing command line arguments
     parser = ArgumentParser()
     parser.add_argument('input', type=str)
-    parser.add_argument('-c', '--config', type=str)
+    parser.add_argument('-c', '--config_file', type=str)
     parser.add_argument('-n', '--nnet_dir', type=str, required=True)
     parser.add_argument('-o', '--output', type=str, required=True)
-    parser.add_argument('-m', '--max_steps', type=int)
-    parser.add_argument('-b', '--batch_size', type=int)
-    parser.add_argument('-e', '--epsilon', type=float)
+    parser.add_argument('-m', '--max_steps', type=int, default=1000)
+    parser.add_argument('-b', '--batch_size', type=int, default=1000)
+    parser.add_argument('-e', '--epsilon', type=float, default=0.01)
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
-    parser.add_argument('-L', '--nerf_dim', type=int)
+    parser.add_argument('-L', '--nerf_dim', type=int, default=0)
     parser.add_argument('--path_weight', type=float, default=0.2)
-    parser.add_argument('--search_eps', type=float, default=0.1)
-    parser.add_argument('--encoding', type=str,
+    parser.add_argument('--search_eps', type=float, default=0.0)
+    parser.add_argument('--encoding', type=str, default='matrix',
                         choices=['matrix', 'hurwitz', 'quaternion', 'discrete'],
                         help='Encoding method of unitary matrix before passing to NNet')
     parser.add_argument('--gateset', type=str, default='t,s,h,x,y,z,cx')
-    args = vars(parser.parse_args())
+    config = vars(parser.parse_args())
 
     # overriding default config options from config file
-    if 'config' in args and args['config'] != None:
-        with open(args['config'], 'r') as f:
+    if 'config_file' in config and config['config_file'] != None:
+        with open(config['config_file'], 'r') as f:
             config_yaml = yaml.safe_load(f.read())
             for x in config_yaml:
                 config[x] = config_yaml[x]
-        del args['config']
 
     # overriding default config options with command line arguments
-    for x in args:
-        y = args[x]
+    for x in config:
+        y = config[x]
         if y != None:
             config[x] = y
  
     start_time = time()
 
     # loading goal data
-    num_qubits, goal_matrix = load_matrix_from_file(args['input'])
+    num_qubits, goal_matrix = load_matrix_from_file(config['input'])
 
     # environment setup
     env: QCircuit = QCircuit(
@@ -96,7 +84,7 @@ if __name__ == '__main__':
     # running search
     step: int = 0
     while np.any([not x.finished() for x in astar.instances]) and step < config['max_steps']:
-        astar.step(verbose=args['verbose'])
+        astar.step(verbose=config['verbose'])
         step += 1
     
     # getting path
@@ -113,7 +101,7 @@ if __name__ == '__main__':
         # converting circuit to OpenQASM 2.0
         qasm_str = path_to_qasm(path_actions, num_qubits)
         error = unitary_distance(qasm_to_matrix(qasm_str), goal_matrix)
-        with open(args['output'], 'w') as f:
+        with open(config['output'], 'w') as f:
             f.write('// Gate-count: %d, T-count: %d, time: %.3fs, error: %.3e\n' % \
                     (gate_count, t_count, search_time, error))
             f.write(qasm_str)

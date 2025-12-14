@@ -120,6 +120,8 @@ class QCircuitNNetParV(HeurNNetV[QState, QGoal]):
                 self.N = 2**(2 * n + 1)
             case 'quaternion':
                 self.N = 4
+            case _:
+                raise Exception('Invalid encoding `%s`' % self.encoding)
 
     def get_nnet(self) -> HeurNNetModule:
         return ResnetModel(self.N, self.L, [2000, 2000, 4000][self.n], 1000, 4, 1, True)

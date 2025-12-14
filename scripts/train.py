@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--backup', type=int, default=1)
     parser.add_argument('--perturb', action='store_true')
     parser.add_argument('--up_bwas_weight', type=float, default=0.2)
-    parser.add_argument('--up_bwas_eps', type=float, default=0.1)
+    parser.add_argument('--up_bwas_eps', type=float, default=0.0)
     parser.add_argument('--train_batch_size', type=int, default=1000)
     parser.add_argument('--train_lr', type=float, default=0.001)
     parser.add_argument('--train_lr_d', type=float, default=0.9999993)
