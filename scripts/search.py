@@ -74,10 +74,11 @@ if __name__ == '__main__':
                                L=config['nerf_dim'],
                                encoding=config['encoding'])
     nnet = nnet_utils.load_nnet(nnet_weights_file, heur_fn.get_nnet(), device)
+    nnet.to(device)
 
     # setup A* search
     astar = BWASEnum(env=env,
-                     heur_fn=heur_fn.get_nnet_fn(nnet=heur_fn.get_nnet(),
+                     heur_fn=heur_fn.get_nnet_fn(nnet=nnet,
                                                  batch_size=config['batch_size'],
                                                  device=device,
                                                  update_num=None))
