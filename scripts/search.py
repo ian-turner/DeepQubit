@@ -70,13 +70,23 @@ if __name__ == '__main__':
     # loading heuristic function
     device, devices, on_gpu = nnet_utils.get_device()
     nnet_weights_file: str = os.path.join(config['nnet_dir'], 'heur_targ.pt')
-    heur_fn = QCircuitNNetParV(num_qubits, config['nerf_dim'], config['encoding'])
+    heur_fn = QCircuitNNetParV(n=num_qubits,
+                               L=config['nerf_dim'],
+                               encoding=config['encoding'])
     nnet = nnet_utils.load_nnet(nnet_weights_file, heur_fn.get_nnet(), device)
 
     # setup A* search
-    astar = BWASEnum(env, heur_fn.get_nnet_fn(heur_fn.get_nnet(), config['batch_size'], device, 0))
+    astar = BWASEnum(env=env,
+                     heur_fn=heur_fn.get_nnet_fn(nnet=heur_fn.get_nnet(),
+                                                 batch_size=config['batch_size'],
+                                                 device=device,
+                                                 update_num=None))
     root_node = astar.create_root_nodes(start_states, goal_states, compute_init_heur=False)[0]
-    astar.add_instances([InstanceBWAS(root_node, config['batch_size'], config['path_weight'], config['search_eps'], None)])
+    astar.add_instances([InstanceBWAS(root_node=root_node,
+                                      batch_size=config['batch_size'],
+                                      weight=config['path_weight'],
+                                      eps=config['search_eps'],
+                                      inst_info=None)])
     print('Setup took %.3f seconds' % (time() - start_time))
 
     start_time = time()
