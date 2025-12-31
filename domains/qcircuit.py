@@ -3,7 +3,7 @@ from abc import ABC
 from typing import Self, Tuple, List, Dict, Any
 from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, \
                                  StringToAct, DomainParser, StateGoalVizable
-from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn
+from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
 from deepxube.factories.domain_factory import register_domain, register_domain_parser
 from deepxube.factories.nnet_input_factory import register_nnet_input
 from utils.matrix_utils import *
@@ -138,7 +138,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                StartGoalWalkable[QState, QAction, QGoal],
                StateGoalVizable[QState, QAction, QGoal],
                StringToAct[QState, QAction, QGoal],
-               HasFlatSGIn[QState, QAction, QGoal]):
+               HasFlatSGActsEnumFixedIn[QState, QAction, QGoal]):
     def __init__(self,
                  num_qubits: int,
                  epsilon: float = 0.01,
@@ -185,6 +185,9 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                     new_gate.action = k
                     self.actions.append(new_gate)
                     k += 1
+    
+    def actions_to_indices(self, actions: List[QAction]) -> List[int]:
+        return [self.actions.index(x) for x in actions]
 
     def get_start_states(self, num_states: int) -> List[QState]:
         """
@@ -313,6 +316,19 @@ class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
         return self.domain.num_qubits
 
     def to_np(self, states: List[QState], goals: List[QGoal]) -> List[NDArray]:
+        # calculating overall transformation from start to goal unitary
+        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
+
+        # converting to nnet input based on encoding
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
+
+
+@register_nnet_input('qcircuit', 'qcircuit_nnet_input_fix_act')
+class QCircutNNetInput(StateGoalActFixIn[QCircuit, QState, QGoal, QAction]):
+    def get_input_info(self) -> int:
+        return self.domain.num_qubits
+
+    def to_np(self, states: List[QState], goals: List[QGoal], actions_l: List[List[QAction]]) -> List[NDArray]:
         # calculating overall transformation from start to goal unitary
         total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
 
