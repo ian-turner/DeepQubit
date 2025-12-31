@@ -229,16 +229,60 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                 for (state, goal) in zip(states, goals)]
 
     def visualize_state_goal(self, state: QState, goal: QGoal, fig: Figure) -> None:
-        ax = plt.axes()
+        # creating circuit from path
         qasm_str = path_to_qasm(state.path, self.num_qubits)
         qc = qasm2.loads(qasm_str)
+
+        # drawing circuit
+        ax = fig.add_axes([0.0, 0.5, 1.0, 0.5])
+        ax.set_title('Quantum Circuit', fontsize=20)
         qc.draw('mpl', ax=ax)
-        fig.add_axes(ax)
-        print('State Unitary:')
-        print(state.unitary)
-        print('Goal Unitary:')
-        print(goal.unitary)
-        plt.tight_layout()
+        for spine in ax.spines.values():
+            spine.set_edgecolor('black')
+            spine.set_linewidth(3)
+            spine.set_linestyle('--')
+
+        # drawing state matrix
+        ax = fig.add_axes([0.0, 0.0, 0.5, 0.5])
+        ax.set_title('State Matrix', fontsize=20)
+        data = state.unitary
+        for i in range(data.shape[0]):
+            for j in range(data.shape[0]):
+                real = np.real(data[i][j])
+                imag = np.imag(data[i][j])
+                numstr = ''
+                numstr += '%.2f' % real
+                if imag < 0.:
+                    numstr += '\n%.2fi' % imag
+                else:
+                    numstr += '\n+%.2fi' % imag
+
+                ax.text(j, i, '%s' % numstr,
+                        horizontalalignment='center',
+                        verticalalignment='center')
+        ax.imshow(np.abs(state.unitary), alpha=0.3, cmap='viridis', interpolation='nearest')
+        plt.axis('off')
+
+        # drawing goal matrix
+        ax = fig.add_axes([0.5, 0.0, 0.5, 0.5])
+        ax.set_title('Goal Matrix', fontsize=20)
+        data = goal.unitary
+        for i in range(data.shape[0]):
+            for j in range(data.shape[0]):
+                real = np.real(data[i][j])
+                imag = np.imag(data[i][j])
+                numstr = ''
+                numstr += '%.2f' % real
+                if imag < 0.:
+                    numstr += '\n%.2fi' % imag
+                else:
+                    numstr += '\n+%.2fi' % imag
+
+                ax.text(j, i, '%s' % numstr,
+                        horizontalalignment='center',
+                        verticalalignment='center')
+        ax.imshow(np.abs(goal.unitary), alpha=0.3, cmap='viridis', interpolation='nearest')
+        plt.axis('off')
 
     def string_to_action(self, act_str: str) -> QAction:
         return self.actions[int(act_str)]
