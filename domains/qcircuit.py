@@ -5,6 +5,7 @@ from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWa
                                  StringToAct, DomainParser, StateGoalVizable
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn
 from deepxube.factories.domain_factory import register_domain, register_domain_parser
+from deepxube.factories.nnet_input_factory import register_nnet_input
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
 from domains.gates import get_gate_set
@@ -136,7 +137,8 @@ def path_to_qasm(path: List[QAction], num_qubits) -> str:
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                StartGoalWalkable[QState, QAction, QGoal],
                StateGoalVizable[QState, QAction, QGoal],
-               StringToAct[QState, QAction, QGoal]):
+               StringToAct[QState, QAction, QGoal],
+               HasFlatSGIn[QState, QAction, QGoal]):
     def __init__(self,
                  num_qubits: int,
                  epsilon: float = 0.01,
@@ -239,19 +241,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
     def string_to_action(self, act_str: str) -> QAction:
         return self.actions[int(act_str)]
 
-    def states_goals_to_nnet_input(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
-        """
-        Converts quantum state class objects to numpy arrays that can be
-        converted to tensors for neural network training
+    def get_input_info_flat_sg(self) -> Tuple[List[int], List[int]]:
+        return [2**(2+self.num_qubits)], [self.num_qubits]
 
-        Also inverts the state matrix and multiplies it to the goal matrix,
-        just passing the resulting unitary to the network, since all that
-        matters is the 'distance' between the two unitaries
-
-        @param states: List of quantum circuit states
-        @param goals: List of quantum circuit goals
-        @returns: List of numpy arrays of flattened state and unitaries (in float format)
-        """
+    def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
         # calculating overall transformation from start to goal unitary
         total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
 
@@ -268,6 +261,7 @@ class QCircuitParser(DomainParser):
         return 'An integer for the number of qubits. E.g. \'qcircuit.3\''
 
 
+@register_nnet_input('qcircuit', 'qcircuit_nnet_input')
 class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
     def get_input_info(self) -> int:
         return self.domain.num_qubits
