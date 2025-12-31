@@ -234,8 +234,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         qc = qasm2.loads(qasm_str)
         qc.draw('mpl', ax=ax)
         fig.add_axes(ax)
-        print('Unitary:')
+        print('State Unitary:')
         print(state.unitary)
+        print('Goal Unitary:')
+        print(goal.unitary)
         plt.tight_layout()
 
     def string_to_action(self, act_str: str) -> QAction:
