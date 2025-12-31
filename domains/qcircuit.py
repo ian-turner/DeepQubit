@@ -1,14 +1,18 @@
 import numpy as np
 from abc import ABC
-from typing import Self, Tuple, List, Dict
-from deepxube.base.env import (EnvGrndAtoms, State, Action, Goal, EnvSupportsPDDL, EnvStartGoalRW, EnvEnumerableActs,
-                               EnvVizable)
-from deepxube.base.heuristic import HeurNNetModule, HeurNNetV, HeurNNetQ, HeurNNetQFixOut, HeurNNetQIn
-
-from utils.pytorch_models import ResnetModel
+from typing import Self, Tuple, List, Dict, Any
+from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, \
+                                 StringToAct, DomainParser, StateGoalVizable
+from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn
+from deepxube.factories.domain_factory import register_domain, register_domain_parser
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
-from environments.gates import get_gate_set
+from domains.gates import get_gate_set
+from numpy.typing import NDArray
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from qiskit import qasm2
+from qiskit.visualization import circuit_drawer
 
 
 class QState(State):
@@ -17,6 +21,7 @@ class QState(State):
 
     def __init__(self, unitary: np.ndarray[np.complex128]):
         self.unitary = unitary
+        self.path = []
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -44,7 +49,9 @@ class QAction(Action, ABC):
 
     def apply_to(self, state: QState) -> QState:
         new_state_unitary = np.matmul(self.full_gate_unitary, state.unitary).astype(np.complex128)
-        return QState(new_state_unitary)
+        new_state = QState(new_state_unitary)
+        new_state.path = [*state.path, self]
+        return new_state
 
     def __eq__(self, other):
         return unitary_distance(self.full_gate_unitary, other.full_gate_unitary) <= self.epsilon
@@ -107,76 +114,37 @@ class ControlledGate(QAction, ABC):
         return '%s(control=%d, target=%d)' % (self.name, self.target, self.control)
 
 
-class QCircuitNNetParV(HeurNNetV[QState, QGoal]):
-    def __init__(self, n: int, L: int = 0, encoding: str = 'matrix'):
-        self.n = n
-        self.L = L
-        self.encoding = encoding
-
-        match (encoding):
-            case 'hurwitz':
-                self.N = 2**(2 * n) - 1
-            case 'matrix':
-                self.N = 2**(2 * n + 1)
-            case 'quaternion':
-                self.N = 4
-            case _:
-                raise Exception('Invalid encoding `%s`' % self.encoding)
-
-    def get_nnet(self) -> HeurNNetModule:
-        return ResnetModel(self.N, self.L, [2000, 2000, 4000][self.n], 1000, 4, 1, True)
-
-    def to_np(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray]:
-        # calculating overall transformation from start to goal unitary
-        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-
-        # converting to nnet input based on encoding
-        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
+def path_to_qasm(path: List[QAction], num_qubits) -> str:
+    qasm_str = ''
+    qasm_str += 'OPENQASM 2.0;\n'
+    qasm_str +='include "qelib1.inc";\n'
+    qasm_str += 'qreg qubits[%d];\n' % num_qubits
+    for x in path:
+        name = x.name
+        if x.name == 't10' or x.name == 't100':
+            name = 't'
+        qasm_str += '%s ' % name
+        if isinstance(x, OneQubitGate):
+            qasm_str += 'qubits[%d]' % x.qubit
+        elif isinstance(x, ControlledGate):
+            qasm_str += 'qubits[%d], qubits[%d]' % (x.control, x.target)
+        qasm_str += ';\n'
+    return qasm_str
 
 
-class QCircuitNNetParQ(HeurNNetQFixOut[QState, QGoal, QAction]):
-    def __init__(self, n: int, output_dim: int, L: int = 0, encoding: str = 'matrix'):
-        self.n = n
-        self.L = L
-        self.encoding = encoding
-        self.output_dim = output_dim
-
-        match (encoding):
-            case 'hurwitz':
-                self.N = 2**(2 * n) - 1
-            case 'matrix':
-                self.N = 2**(2 * n + 1)
-            case 'quaternion':
-                self.N = 4
-            case _:
-                raise Exception('Invalid encoding `%s`' % self.encoding)
-
-    def get_nnet(self) -> HeurNNetModule:
-        return ResnetModel(self.N, self.L, [2000, 2000, 4000][self.n], 1000, 4, self.output_dim, True)
-
-    def _to_np_fixed_acts(self, states: List[QState], goals: List[QGoal], actions_l: List[QAction]) -> List[np.ndarray]:
-        # calculating overall transformation from start to goal unitary
-        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-        num_actions = len(actions_l[0])
-        actions_np = np.zeros((len(states), num_actions)).astype(int)
-
-        for i in range(len(states)):
-            actions_np[i] = np.array([action.action for action in actions_l[i]])
-
-        # converting to nnet input based on encoding
-        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding), actions_np]
-
-
-class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
-               EnvEnumerableActs[QState, QAction, QGoal]):
+@register_domain('qcircuit')
+class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
+               StartGoalWalkable[QState, QAction, QGoal],
+               StateGoalVizable[QState, QAction, QGoal],
+               StringToAct[QState, QAction, QGoal]):
     def __init__(self,
                  num_qubits: int,
                  epsilon: float = 0.01,
                  perturb: bool = False,
                  encoding: str = 'matrix',
-                 gateset: str = 't,s,h,x,y,z',
+                 gateset: str = 't,s,h,x,y,z,cx',
                  L: int = 15):
-        super(QCircuit, self).__init__()
+        super().__init__()
         
         self.L = L
         self.perturb = perturb
@@ -225,8 +193,8 @@ class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
         """
         return [QState(tensor_product([I] * self.num_qubits)) for _ in range(num_states)]
 
-    def get_state_actions(self, states: List[QState]) -> List[List[QAction]]:
-        return [[x for x in self.actions] for _ in states]
+    def _get_actions_fixed(self) -> List[List[QAction]]:
+        return [x for x in self.actions]
 
     def next_state(self, states: List[QState], actions: List[QAction]) -> Tuple[List[QState], List[float]]:
         next_states = []
@@ -258,6 +226,19 @@ class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
         return [unitary_distance(state.unitary, goal.unitary) <= self.epsilon \
                 for (state, goal) in zip(states, goals)]
 
+    def visualize_state_goal(self, state: QState, goal: QGoal, fig: Figure) -> None:
+        ax = plt.axes()
+        qasm_str = path_to_qasm(state.path, self.num_qubits)
+        qc = qasm2.loads(qasm_str)
+        qc.draw('mpl', ax=ax)
+        fig.add_axes(ax)
+        print('Unitary:')
+        print(state.unitary)
+        plt.tight_layout()
+
+    def string_to_action(self, act_str: str) -> QAction:
+        return self.actions[int(act_str)]
+
     def states_goals_to_nnet_input(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
         """
         Converts quantum state class objects to numpy arrays that can be
@@ -276,31 +257,24 @@ class QCircuit(EnvStartGoalRW[QState, QAction, QGoal],
 
         # converting to nnet input based on encoding
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
-        
-    def get_v_nnet(self) -> HeurNNetV:
-        # calculating nnet input size based on encoding
-        match (self.encoding):
-            case 'hurwitz':
-                N = 2**(2 * self.num_qubits) - 1
-            case 'matrix':
-                N = 2**(2 * self.num_qubits + 1)
-            case 'quaternion':
-                N = 4
-        return ResnetModel(N, self.L, [2000, 2000, 4000][self.num_qubits-1], 1000, 4, 1, True)
 
-    # ------------------- NOT IMPLEMENTED -------------------
 
-    def get_q_nnet(self) -> HeurNNetQ:
-        raise NotImplementedError()
-    
-    def get_pddl_domain(self):
-        raise NotImplementedError()
-    
-    def state_goal_to_pddl_inst(self, state, goal):
-        raise NotImplementedError()
-    
-    def pddl_action_to_action(self, pddl_action):
-        raise NotImplementedError()
-    
-    def visualize(self, states, goals):
-        raise NotImplementedError()
+@register_domain_parser('qcircuit')
+class QCircuitParser(DomainParser):
+    def parse(self, args_str: str) -> Dict[str, Any]:
+        return {'num_qubits': int(args_str)}
+
+    def help(self) -> str:
+        return 'An integer for the number of qubits. E.g. \'qcircuit.3\''
+
+
+class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
+    def get_input_info(self) -> int:
+        return self.domain.num_qubits
+
+    def to_np(self, states: List[QState], goals: List[QGoal]) -> List[NDArray]:
+        # calculating overall transformation from start to goal unitary
+        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
+
+        # converting to nnet input based on encoding
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]

@@ -1,5 +1,5 @@
 torch>=2.6.0
-git+https://github.com/forestagostinelli/deepxube@f79d0953b5533d46ed413033bca59783dd3dc796
+git+https://github.com/forestagostinelli/deepxube@6de8f55203d10b69e33292609f86c1bb41e0a85d
 scipy>=1.15.2
 qiskit>=2.1.1
 einops>=0.8.1

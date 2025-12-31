@@ -1,5 +1,7 @@
-from environments.qcircuit import *
+from domains.qcircuit import *
 from utils.matrix_utils import *
+from qiskit.quantum_info import Operator
+from qiskit import qasm2
 
 
 def path_to_qasm(path: List[QAction], num_qubits) -> str:
