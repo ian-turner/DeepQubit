@@ -1,10 +1,10 @@
 import numpy as np
 from abc import ABC
 from typing import Self, Tuple, List, Dict, Any
-from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, \
-                                 StringToAct, DomainParser, StateGoalVizable
+from deepxube.base.factory import Parser
+from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, StringToAct, StateGoalVizable
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
-from deepxube.factories.domain_factory import register_domain, register_domain_parser
+from deepxube.factories.domain_factory import domain_factory
 from deepxube.factories.nnet_input_factory import register_nnet_input
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
@@ -133,7 +133,7 @@ def path_to_qasm(path: List[QAction], num_qubits) -> str:
     return qasm_str
 
 
-@register_domain('qcircuit')
+@domain_factory.register_class('qcircuit')
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                StartGoalWalkable[QState, QAction, QGoal],
                StateGoalVizable[QState, QAction, QGoal],
@@ -301,8 +301,8 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
 
-@register_domain_parser('qcircuit')
-class QCircuitParser(DomainParser):
+@domain_factory.register_parser('qcircuit')
+class QCircuitParser(Parser):
     def parse(self, args_str: str) -> Dict[str, Any]:
         return {'num_qubits': int(args_str)}
 
