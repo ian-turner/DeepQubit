@@ -1,5 +1,3 @@
-import scipy
-from scipy.linalg import schur, expm
 import numpy as np
 from numpy import trace, log, exp, diag, diagonal
 from numpy.linalg import det, eig, inv, svd
@@ -99,11 +97,6 @@ def unitary_distance(U: NDArray, C: NDArray) -> float:
     return d_sc
 
 
-def random_unitary(dim: int) -> NDArray:
-    """Generates a randomly distributed set of unitary matrices"""
-    return scipy.stats.unitary_group.rvs(dim)
-
-
 def invert_unitary(U: NDArray) -> NDArray:
     """Inverts a unitary matrix"""
     return U.conj().T
@@ -140,20 +133,6 @@ def quaternions_to_unitaries(Q: NDArray[float]) -> NDArray:
     Us[:, 1, 0] = -Q[:, 2] + 1j * Q[:, 3]
     Us[:, 1, 1] = Q[:, 0] - 1j * Q[:, 1]
     return Us
-
-
-def perturb_unitary(Us: NDArray, epsilon: float) -> NDArray:
-    """Adds a random perturbation to a unitary U to get a unitary V
-    such that d(U,V) < epsilon"""
-    N = Us.shape[0]
-    n = Us.shape[1]
-    X = np.random.rand(N, n, n) + np.random.rand(N, n, n) * 1j
-    X_hat = np.transpose(X.conj(), axes=(0, 2, 1))
-    H0 = X + X_hat
-    H = 2 * epsilon * H0 * (1 / np.linalg.matrix_norm(H0))[:, None, None]
-    W = expm(1j*H)
-    Us_hat = Us @ W
-    return Us_hat
 
 
 def nerf_embedding(xs: NDArray, dim: int) -> NDArray:
