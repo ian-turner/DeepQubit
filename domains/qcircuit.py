@@ -1,19 +1,20 @@
+import re
 import numpy as np
+from numpy.typing import NDArray
 from abc import ABC
 from typing import Self, Tuple, List, Dict, Any
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from qiskit import qasm2
 from deepxube.base.factory import Parser
 from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, StringToAct, StateGoalVizable
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
 from deepxube.factories.domain_factory import domain_factory
 from deepxube.factories.nnet_input_factory import register_nnet_input
+
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
 from domains.gates import get_gate_set
-from numpy.typing import NDArray
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-from qiskit import qasm2
-from qiskit.visualization import circuit_drawer
 
 
 class QState(State):
@@ -145,10 +146,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  perturb: bool = False,
                  encoding: str = 'matrix',
                  gateset: str = 't,s,h,x,y,z,cx',
-                 L: int = 15):
+                 nerf_dim: int = 15):
         super().__init__()
         
-        self.L = L
+        self.nerf_dim = nerf_dim
         self.perturb = perturb
         self.num_qubits = num_qubits
         self.epsilon = epsilon
@@ -189,7 +190,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
     def actions_to_indices(self, actions: List[QAction]) -> List[int]:
         return [self.actions.index(x) for x in actions]
 
-    def get_start_states(self, num_states: int) -> List[QState]:
+    def sample_start_states(self, num_states: int) -> List[QState]:
         """
         Generates a set of states with the identity as their unitary
 
@@ -198,8 +199,11 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         """
         return [QState(tensor_product([I] * self.num_qubits)) for _ in range(num_states)]
 
-    def _get_actions_fixed(self) -> List[List[QAction]]:
+    def get_actions_fixed(self) -> List[List[QAction]]:
         return [x for x in self.actions]
+
+    def string_to_action_help(self) -> str:
+        return "index of gate action (actions: %s)" % (str(self.actions))
 
     def next_state(self, states: List[QState], actions: List[QAction]) -> Tuple[List[QState], List[float]]:
         next_states = []
@@ -210,7 +214,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         transition_costs = [x.cost for x in actions]
         return next_states, transition_costs
 
-    def sample_goal(self, states_start: List[QState], states_goal: List[QState]) -> List[QGoal]:
+    def sample_goal_from_state(self, states_start: List[QState], states_goal: List[QState]) -> List[QGoal]:
         """
         Creates goal objects from state-goal pairs
         """
@@ -291,20 +295,46 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return self.actions[int(act_str)]
 
     def get_input_info_flat_sg(self) -> Tuple[List[int], List[int]]:
-        return [2**(2+self.num_qubits)], [self.num_qubits]
+        N: int
+        match self.encoding:
+            case 'matrix':
+                N = 2 ** (2 + self.num_qubits)
+
+        return [self.nerf_dim * N], [self.num_qubits]
 
     def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
         # calculating overall transformation from start to goal unitary
         total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
 
         # converting to nnet input based on encoding
-        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
+        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding, nerf_dim=self.nerf_dim)]
 
 
 @domain_factory.register_parser('qcircuit')
 class QCircuitParser(Parser):
     def parse(self, args_str: str) -> Dict[str, Any]:
-        return {'num_qubits': int(args_str)}
+        args = args_str.split('_')
+        args_dict = {}
+        for arg in args:
+            num_qubits = re.search(r'n(\d+)', arg)
+            epsilon = re.search(r'e(\d+)\.(\d+)', arg)
+            nerf_dim = re.search(r'L(\d+).*', arg)
+            encoding = re.search('[HQ]', arg)
+            if num_qubits is not None:
+                args_dict['num_qubits'] = int(num_qubits.group(1))
+            if epsilon is not None:
+                args_dict['epsilon'] = float(epsilon.group()[1:])
+            if nerf_dim is not None:
+                args_dict['nerf_dim'] = int(nerf_dim.group(1))
+            if encoding is not None:
+                match encoding.group():
+                    case 'M':
+                        args_dict['encoding'] = 'matrix'
+                    case 'H':
+                        args_dict['encoding'] = 'hurwitz'
+                    case 'Q':
+                        args_dict['encoding'] = 'quaternion'
+        return args_dict
 
     def help(self) -> str:
         return 'An integer for the number of qubits. E.g. \'qcircuit.3\''
