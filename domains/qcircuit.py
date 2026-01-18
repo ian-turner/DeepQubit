@@ -14,7 +14,6 @@ from deepxube.factories.nnet_input_factory import register_nnet_input
 
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_random_batch_strict
-from domains.gates import get_gate_set
 
 
 class QState(State):
@@ -50,59 +49,42 @@ class QAction(Action, ABC):
     epsilon: float = 1e-6
 
     def apply_to(self, state: QState) -> QState:
-        new_state_unitary = np.matmul(self.full_gate_unitary, state.unitary).astype(np.complex128)
+        new_state_unitary = np.matmul(self._full_unitary, state.unitary).astype(np.complex128)
         new_state = QState(new_state_unitary)
-        new_state.path = [*state.path, self]
         return new_state
-
-    def __eq__(self, other):
-        return unitary_distance(self.full_gate_unitary, other.full_gate_unitary) <= self.epsilon
-
-    def __hash__(self):
-        return hash_unitary(self.full_gate_unitary)
 
 
 class OneQubitGate(QAction, ABC):
-    def __init__(self,
-                 num_qubits: int,
-                 qubit: int,
-                 unitary: np.ndarray,
-                 name: str,
-                 cost: float):
+    def __init__(self, num_qubits: int, qubit: int):
         self.num_qubits = num_qubits
         self.qubit = qubit
-        self.unitary = unitary
-        self.name = name
-        self.cost = cost
-        self._generate_full_unitary(num_qubits)
+        self._generate_full_unitary()
     
-    def _generate_full_unitary(self, num_qubits: int):
-        mats = [I] * num_qubits
+    def _generate_full_unitary(self):
+        mats = [I] * self.num_qubits
         mats[self.qubit] = self.unitary
-        self.full_gate_unitary = tensor_product(mats)
+        self._full_unitary = tensor_product(mats).astype(np.complex128)
 
     def __repr__(self) -> str:
-        return '%s(qubit=%d)' % (self.name, self.qubit)
+        return '%s(qubit=%d)' % (type(self).__name__, self.qubit)
+
+    def __eq__(self, other):
+        return (unitary_distance(self._full_unitary, other._full_unitary) <= self.epsilon) \
+               and (self.qubit == other.qubit)
+
+    def __hash__(self):
+        return hash((self.qubit, hash_unitary(self._full_unitary)))
     
 
 class ControlledGate(QAction, ABC):
-    def __init__(self,
-                 num_qubits: int,
-                 control: int,
-                 target: int,
-                 unitary: np.ndarray,
-                 name: str,
-                 cost: float):
-        self.unitary = unitary
-        self.name = name
+    def __init__(self, num_qubits: int, control: int, target: int):
         self.control = control
         self.target = target
-        self.cost = cost
-        self._generate_full_unitary(num_qubits)
+        self._generate_full_unitary()
 
-    def _generate_full_unitary(self, num_qubits: int):
-        p0_mats = [I] * num_qubits
-        p1_mats = [I] * num_qubits
+    def _generate_full_unitary(self):
+        p0_mats = [I] * self.num_qubits
+        p1_mats = [I] * self.num_qubits
 
         p0_mats[self.control] = P0
         p1_mats[self.control] = P1
@@ -110,34 +92,70 @@ class ControlledGate(QAction, ABC):
         
         p0_full = tensor_product(p0_mats)
         p1_full = tensor_product(p1_mats)
-        self.full_gate_unitary = p0_full + p1_full
+        self._full_unitary = (p0_full + p1_full).astype(np.complex128)
 
     def __repr__(self) -> str:
-        return '%s(control=%d, target=%d)' % (self.name, self.target, self.control)
+        return '%s(control=%d, target=%d)' % (type(self).__name__, self.target, self.control)
+
+    def __eq__(self, other):
+        return (unitary_distance(self._full_unitary, other._full_unitary) <= self.epsilon) \
+               and (self.control == other.control) and (self.target == other.target)
+
+    def __hash__(self):
+        return hash((self.control, self.target, hash_unitary(self._full_unitary)))
 
 
-def path_to_qasm(path: List[QAction], num_qubits) -> str:
-    qasm_str = ''
-    qasm_str += 'OPENQASM 2.0;\n'
-    qasm_str +='include "qelib1.inc";\n'
-    qasm_str += 'qreg qubits[%d];\n' % num_qubits
-    for x in path:
-        name = x.name
-        if x.name == 't10' or x.name == 't100':
-            name = 't'
-        qasm_str += '%s ' % name
-        if isinstance(x, OneQubitGate):
-            qasm_str += 'qubits[%d]' % x.qubit
-        elif isinstance(x, ControlledGate):
-            qasm_str += 'qubits[%d], qubits[%d]' % (x.control, x.target)
-        qasm_str += ';\n'
-    return qasm_str
+class HGate(OneQubitGate):
+    unitary = (1/np.sqrt(2)) * np.array([[1, 1],
+                                         [1, -1]])
+    cost = 1.0
+
+
+class SGate(OneQubitGate):
+    unitary = np.array([[1, 0],
+                        [0, 1j]])
+    cost = 1.0
+
+
+class ZGate(OneQubitGate):
+    unitary = np.array([[1, 0],
+                        [0, -1]])
+    cost = 1.0
+
+
+class TGate(OneQubitGate):
+    unitary = np.array([[1, 0],
+                        [0, np.exp(1j*np.pi/4)]])
+    cost = 1.0
+
+
+class XGate(OneQubitGate):
+    unitary = np.array([[0, 1],
+                        [1, 0]])
+    cost = 1.0
+
+
+class YGate(OneQubitGate):
+    unitary = np.array([[0, -1j],
+                        [1j, 0]])
+    cost = 1.0
+
+
+class CNOTGate(ControlledGate):
+    unitary = np.array([[1, 0],
+                        [0, 1]])
+    cost = 1.0
+
+
+def get_gate_set(gateset: str) -> List[QAction]:
+    match gateset:
+        case 'CliffT':
+            return [HGate, SGate, YGate, TGate, XGate, ZGate, CNOTGate]
 
 
 @domain_factory.register_class('qcircuit')
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                StartGoalWalkable[QState, QAction, QGoal],
-               StateGoalVizable[QState, QAction, QGoal],
                StringToAct[QState, QAction, QGoal],
                HasFlatSGActsEnumFixedIn[QState, QAction, QGoal]):
     def __init__(self,
@@ -145,7 +163,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  epsilon: float = 0.01,
                  perturb: bool = False,
                  encoding: str = 'matrix',
-                 gateset: str = 't,s,h,x,y,z,cx',
+                 gateset: str = 'CliffT',
                  nerf_dim: int = 15):
         super().__init__()
         
@@ -169,23 +187,22 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
             # looping over each gate in the gate set
             for i in range(self.num_qubits):
                 # looping over each qubit
-                if 'controlled' in gate and gate['controlled']:
-                    # if the gate is a controlled gate,
-                    # loop over each possible pair of qubits
-                    for j in range(self.num_qubits):
-                        if i != j:
-                            new_gate = ControlledGate(self.num_qubits, i, j, name=gate['name'],
-					  	      cost=gate['cost'], unitary=gate['unitary'])
-                            new_gate.action = k
-                            self.actions.append(new_gate)
-                            k += 1
-                else:
-                    # if the gate only acts on one qubit,
-                    # add gate to all qubits once
-                    new_gate = OneQubitGate(self.num_qubits, i, **gate)
-                    new_gate.action = k
-                    self.actions.append(new_gate)
-                    k += 1
+                    if issubclass(gate, ControlledGate):
+                        for j in range(self.num_qubits):
+                            # if the gate is a controlled gate,
+                            # loop over each possible pair of qubits
+                            if i != j:
+                                _gate = gate(self.num_qubits, i, j)
+                                _gate.action = k
+                                self.actions.append(_gate)
+                                k += 1
+                    elif issubclass(gate, OneQubitGate):
+                        # if the gate only acts on one qubit,
+                        # add gate to all qubits once
+                        _gate = gate(self.num_qubits, i)
+                        _gate.action = k
+                        self.actions.append(_gate)
+                        k += 1
     
     def actions_to_indices(self, actions: List[QAction]) -> List[int]:
         return [self.actions.index(x) for x in actions]
@@ -235,62 +252,6 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return [unitary_distance(state.unitary, goal.unitary) <= self.epsilon \
                 for (state, goal) in zip(states, goals)]
 
-    def visualize_state_goal(self, state: QState, goal: QGoal, fig: Figure) -> None:
-        # creating circuit from path
-        qasm_str = path_to_qasm(state.path, self.num_qubits)
-        qc = qasm2.loads(qasm_str)
-
-        # drawing circuit
-        ax = fig.add_axes([0.0, 0.5, 1.0, 0.5])
-        ax.set_title('Quantum Circuit', fontsize=20)
-        qc.draw('mpl', ax=ax)
-        for spine in ax.spines.values():
-            spine.set_edgecolor('black')
-            spine.set_linewidth(3)
-            spine.set_linestyle('--')
-
-        # drawing state matrix
-        ax = fig.add_axes([0.0, 0.0, 0.5, 0.5])
-        ax.set_title('State Matrix', fontsize=20)
-        data = state.unitary
-        for i in range(data.shape[0]):
-            for j in range(data.shape[0]):
-                real = np.real(data[i][j])
-                imag = np.imag(data[i][j])
-                numstr = ''
-                numstr += '%.2f' % real
-                if imag < 0.:
-                    numstr += '\n%.2fi' % imag
-                else:
-                    numstr += '\n+%.2fi' % imag
-
-                ax.text(j, i, '%s' % numstr,
-                        horizontalalignment='center',
-                        verticalalignment='center')
-        ax.imshow(np.abs(state.unitary), alpha=0.3, cmap='viridis', interpolation='nearest')
-        plt.axis('off')
-
-        # drawing goal matrix
-        ax = fig.add_axes([0.5, 0.0, 0.5, 0.5])
-        ax.set_title('Goal Matrix', fontsize=20)
-        data = goal.unitary
-        for i in range(data.shape[0]):
-            for j in range(data.shape[0]):
-                real = np.real(data[i][j])
-                imag = np.imag(data[i][j])
-                numstr = ''
-                numstr += '%.2f' % real
-                if imag < 0.:
-                    numstr += '\n%.2fi' % imag
-                else:
-                    numstr += '\n+%.2fi' % imag
-
-                ax.text(j, i, '%s' % numstr,
-                        horizontalalignment='center',
-                        verticalalignment='center')
-        ax.imshow(np.abs(goal.unitary), alpha=0.3, cmap='viridis', interpolation='nearest')
-        plt.axis('off')
-
     def string_to_action(self, act_str: str) -> QAction:
         return self.actions[int(act_str)]
 
@@ -300,7 +261,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
             case 'matrix':
                 N = 2 ** (2 + self.num_qubits)
 
-        return [self.nerf_dim * N], [self.num_qubits]
+        return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [self.num_qubits]
 
     def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
         # calculating overall transformation from start to goal unitary
@@ -334,6 +295,8 @@ class QCircuitParser(Parser):
                         args_dict['encoding'] = 'hurwitz'
                     case 'Q':
                         args_dict['encoding'] = 'quaternion'
+            if arg == 'P':
+                args_dict['perturb'] = True
         return args_dict
 
     def help(self) -> str:

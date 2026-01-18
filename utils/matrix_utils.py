@@ -138,8 +138,12 @@ def quaternions_to_unitaries(Q: NDArray[float]) -> NDArray:
 def nerf_embedding(xs: NDArray, dim: int) -> NDArray:
     t = 2 ** np.arange(dim)
     ys = xs[:,:,None] * t[None,None,:]
-    a, b, c = ys.shape
-    return ys.reshape(a, b * c)
+    _sin = np.sin(ys)
+    _cos = np.cos(ys)
+    ys = np.stack([_sin, _cos], axis=-1)
+    a, b, c, _ = ys.shape
+    ys = ys.reshape(a, b * c * 2)
+    return ys
 
 
 def unitaries_to_nnet_input(Us: NDArray, encoding: str = 'matrix', nerf_dim: int = 0) -> NDArray:
