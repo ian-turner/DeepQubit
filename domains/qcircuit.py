@@ -6,6 +6,7 @@ from typing import Self, Tuple, List, Dict, Any
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from qiskit import qasm2
+from qiskit.quantum_info import random_unitary
 from deepxube.base.factory import Parser
 from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, StringToAct, StateGoalVizable
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
@@ -164,6 +165,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  perturb: bool = False,
                  encoding: str = 'matrix',
                  gateset: str = 'CliffT',
+                 random_goal: bool = False,
                  nerf_dim: int = 15):
         super().__init__()
         
@@ -172,6 +174,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self.num_qubits = num_qubits
         self.epsilon = epsilon
         self.encoding = encoding
+        self.random_goal = random_goal
 
         self._generate_actions(gateset)
 
@@ -235,6 +238,9 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         """
         Creates goal objects from state-goal pairs
         """
+        if self.random_goal:
+            return [QGoal(random_unitary(2 ** self.num_qubits).data) for _ in range(len(states_start))]
+
         U_b = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states_start, states_goal)])
         if self.perturb:
             U_pt = perturb_unitary_random_batch_strict(U_b, (1/np.sqrt(2)) * self.epsilon)
@@ -295,8 +301,10 @@ class QCircuitParser(Parser):
                         args_dict['encoding'] = 'hurwitz'
                     case 'Q':
                         args_dict['encoding'] = 'quaternion'
-            if arg == 'P':
+            elif arg == 'P':
                 args_dict['perturb'] = True
+            elif arg == 'R':
+                args_dict['random_goal'] = True
         return args_dict
 
     def help(self) -> str:
