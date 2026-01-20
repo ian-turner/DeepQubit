@@ -266,6 +266,8 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         match self.encoding:
             case 'matrix':
                 N = 2 ** (2 + self.num_qubits)
+            case 'hurwitz':
+                N = (2 ** self.num_qubits) ** 2 - 1
 
         return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [self.num_qubits]
 
