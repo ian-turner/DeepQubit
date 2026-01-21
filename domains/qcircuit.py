@@ -23,7 +23,6 @@ class QState(State):
 
     def __init__(self, unitary: np.ndarray[np.complex128]):
         self.unitary = unitary
-        self.path = []
     
     def __hash__(self):
         return hash_unitary(self.unitary)
@@ -166,7 +165,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  encoding: str = 'matrix',
                  gateset: str = 'CliffT',
                  random_goal: bool = False,
-                 nerf_dim: int = 15):
+                 nerf_dim: int = 0):
         super().__init__()
         
         self.nerf_dim = nerf_dim
