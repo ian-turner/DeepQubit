@@ -10,4 +10,8 @@ deepxube train --domain qcircuit.$NNET_NAME \
                --max_itrs 100000 \
                --procs 20 \
                --step_max 1000 \
-               --search_itrs 1000
+               --search_itrs 1000 \
+	       --t_file tmp/n1_goals_R_1K.pkl \
+	       --t_pathfinds bwqs \
+	       --t_search_itrs 100 \
+	       --up_v
