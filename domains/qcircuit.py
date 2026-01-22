@@ -178,6 +178,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
 
         self._generate_actions(gateset)
 
+    def __repr__(self) -> str:
+        return 'QCircuit(num_qubits=%d, epsilon=%f, nerf_dim=%d, perturb=%s, encoding=%s)' % \
+               (self.num_qubits, self.epsilon, self.nerf_dim, str(self.perturb), self.encoding)
+
     def _generate_actions(self, gateset: str):
         """
         Generates the action set for n qubits given a specific gate set
