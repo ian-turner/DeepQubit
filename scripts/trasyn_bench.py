@@ -1,5 +1,6 @@
 import os
 import sys
+import pickle
 from time import time
 from argparse import ArgumentParser
 import trasyn
@@ -12,20 +13,25 @@ from utils.matrix_utils import *
 def main():
     # running benchmark on rz gates
     parser = ArgumentParser()
-    parser.add_argument('directory', type=str)
+    parser.add_argument('goals', type=str)
     parser.add_argument('--epsilon', type=float, default=0.01)
     parser.add_argument('--t_budget', type=int, default=30)
     args = parser.parse_args()
 
-    N = None # size of matrix
-    Us = [] # loading matrices
-    filenames = []
-    for file in os.listdir(args.directory):
-        if file.endswith('.txt'):
-            filepath = os.path.join(args.directory, file)
-            filenames.append(file)
-            N, U = load_matrix_from_file(filepath)
-            Us.append(U)
+    # loading goal matrices
+    data = pickle.load(open(args.goals, 'rb'))
+    Us = [x.unitary for x in data['goals']]
+    N = int(np.log2(Us[0].shape[0]))
+
+#    N = None # size of matrix
+#    Us = [] # loading matrices
+#    filenames = []
+#    for file in os.listdir(args.directory):
+#        if file.endswith('.txt'):
+#            filepath = os.path.join(args.directory, file)
+#            filenames.append(file)
+#            N, U = load_matrix_from_file(filepath)
+#            Us.append(U)
 
     print('Running Trasyn benchmark for epsilon=%.2e' % args.epsilon)
     for i, U in enumerate(Us):
@@ -47,8 +53,8 @@ def main():
             gate_count = len(seq)
 
         synth_time = time() - start_time
-        print('%s | time: %.3f | T-count: %i | gate count: %i | error: %.3e' % \
-            (filenames[i], synth_time, t_count, gate_count, err)) 
+        print('Goal idx: %i | time: %.3f | T-count: %i | gate count: %i | error: %.3e' % \
+            (i, synth_time, t_count, gate_count, err)) 
 
 
 if __name__ == '__main__':
