@@ -80,6 +80,7 @@ class ControlledGate(QAction, ABC):
     def __init__(self, num_qubits: int, control: int, target: int):
         self.control = control
         self.target = target
+        self.num_qubits = num_qubits
         self._generate_full_unitary()
 
     def _generate_full_unitary(self):
