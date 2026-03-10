@@ -273,7 +273,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
             case 'hurwitz':
                 N = (2 ** self.num_qubits) ** 2 - 1
 
-        return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [self.num_qubits]
+        return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [1]
 
     def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
         # calculating overall transformation from start to goal unitary
