@@ -269,7 +269,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         N: int
         match self.encoding:
             case 'matrix':
-                N = 2 ** (2 + self.num_qubits + 1)
+                N = 2 ** (2 * self.num_qubits + 1)
             case 'hurwitz':
                 N = (2 ** self.num_qubits) ** 2 - 1
 
