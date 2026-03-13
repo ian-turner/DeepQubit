@@ -143,8 +143,8 @@ class YGate(OneQubitGate):
 
 
 class CNOTGate(ControlledGate):
-    unitary = np.array([[1, 0],
-                        [0, 1]])
+    unitary = np.array([[0, 1],
+                        [1, 0]])
     cost = 1.0
 
 
