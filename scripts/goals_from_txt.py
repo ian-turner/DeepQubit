@@ -26,5 +26,4 @@ if __name__ == '__main__':
     data = {'states': states, 'goals': goals}
 
     # saving using pickle
-    with open(args.output, 'wb') as f:
-        pickle.dump(data, f)
+    pickle.dump(data, open(args.output, 'wb'))

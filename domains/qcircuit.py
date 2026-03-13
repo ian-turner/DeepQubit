@@ -66,7 +66,7 @@ class OneQubitGate(QAction, ABC):
         self._full_unitary = tensor_product(mats).astype(np.complex128)
 
     def __repr__(self) -> str:
-        return '%s(qubit=%d)' % (type(self).__name__, self.qubit)
+        return '%s qs[%d]' % (self.name, self.qubit)
 
     def __eq__(self, other):
         return (unitary_distance(self._full_unitary, other._full_unitary) <= self.epsilon) \
@@ -96,7 +96,7 @@ class ControlledGate(QAction, ABC):
         self._full_unitary = (p0_full + p1_full).astype(np.complex128)
 
     def __repr__(self) -> str:
-        return '%s(control=%d, target=%d)' % (type(self).__name__, self.target, self.control)
+        return '%s qs[%d], qs[%d]' % (self.name, self.control, self.target)
 
     def __eq__(self, other):
         return (unitary_distance(self._full_unitary, other._full_unitary) <= self.epsilon) \
@@ -110,42 +110,49 @@ class HGate(OneQubitGate):
     unitary = (1/np.sqrt(2)) * np.array([[1, 1],
                                          [1, -1]])
     cost = 1.0
+    name = 'h'
 
 
 class SGate(OneQubitGate):
     unitary = np.array([[1, 0],
                         [0, 1j]])
     cost = 1.0
+    name = 's'
 
 
 class ZGate(OneQubitGate):
     unitary = np.array([[1, 0],
                         [0, -1]])
     cost = 1.0
+    name = 'z'
 
 
 class TGate(OneQubitGate):
     unitary = np.array([[1, 0],
                         [0, np.exp(1j*np.pi/4)]])
     cost = 1.0
+    name = 't'
 
 
 class XGate(OneQubitGate):
     unitary = np.array([[0, 1],
                         [1, 0]])
     cost = 1.0
+    name = 'x'
 
 
 class YGate(OneQubitGate):
     unitary = np.array([[0, -1j],
                         [1j, 0]])
     cost = 1.0
+    name = 'y'
 
 
 class CNOTGate(ControlledGate):
     unitary = np.array([[0, 1],
                         [1, 0]])
     cost = 1.0
+    name = 'cx'
 
 
 class CZGate(ControlledGate):
