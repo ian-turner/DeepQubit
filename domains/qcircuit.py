@@ -148,6 +148,18 @@ class CNOTGate(ControlledGate):
     cost = 1.0
 
 
+class CZGate(ControlledGate):
+    unitary = np.array([[1, 0],
+                        [0, -1]])
+    cost = 1.0
+
+
+class CHGate(ControlledGate):
+    unitary = (1/np.sqrt(2)) * np.array([[1, 1],
+                                         [1, -1]])
+    cost = 1.0
+
+
 def get_gate_set(gateset: str) -> List[QAction]:
     match gateset:
         case 'CliffT':
