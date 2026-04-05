@@ -120,6 +120,13 @@ class SGate(OneQubitGate):
     name = 's'
 
 
+class SdgGate(OneQubitGate):
+    unitary = np.array([[1, 0],
+                        [0, -1j]])
+    cost = 1.0
+    name = 's'
+
+
 class ZGate(OneQubitGate):
     unitary = np.array([[1, 0],
                         [0, -1]])
@@ -130,6 +137,13 @@ class ZGate(OneQubitGate):
 class TGate(OneQubitGate):
     unitary = np.array([[1, 0],
                         [0, np.exp(1j*np.pi/4)]])
+    cost = 1.0
+    name = 't'
+
+
+class TdgGate(OneQubitGate):
+    unitary = np.array([[1, 0],
+                        [0, np.exp(-1j*np.pi/4)]])
     cost = 1.0
     name = 't'
 
@@ -171,7 +185,8 @@ def get_gate_set(gateset: str) -> List[QAction]:
     match gateset:
         case 'CliffT':
             return [HGate, SGate, YGate, TGate, XGate, ZGate, CNOTGate]
-
+        case 'CliffT_S':
+            return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
 
 @domain_factory.register_class('qcircuit')
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
@@ -291,6 +306,8 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                 N = 2 ** (2 * self.num_qubits + 1)
             case 'hurwitz':
                 N = (2 ** self.num_qubits) ** 2 - 1
+            case 'quaternion':
+                N = 4
 
         return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [1]
 
@@ -312,6 +329,9 @@ class QCircuitParser(Parser):
             epsilon = re.search(r'e(\d+)\.(\d+)', arg)
             nerf_dim = re.search(r'L(\d+).*', arg)
             encoding = re.search('[HQ]', arg)
+            synthetiq_gateset = re.search('S', arg)
+            if synthetiq_gateset is not None:
+                args_dict['gateset'] = 'CliffT_S'
             if num_qubits is not None:
                 args_dict['num_qubits'] = int(num_qubits.group(1))
             if epsilon is not None:
