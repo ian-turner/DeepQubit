@@ -209,12 +209,13 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self.epsilon = epsilon
         self.encoding = encoding
         self.random_goal = random_goal
+        self.gateset = gateset
 
         self._generate_actions(gateset)
 
     def __repr__(self) -> str:
-        return 'QCircuit(num_qubits=%d, epsilon=%f, nerf_dim=%d, perturb=%s, encoding=%s)' % \
-               (self.num_qubits, self.epsilon, self.nerf_dim, str(self.perturb), self.encoding)
+        return 'QCircuit(gateset=%s, num_qubits=%d, epsilon=%f, nerf_dim=%d, perturb=%s, encoding=%s)' % \
+               (self.gateset, self.num_qubits, self.epsilon, self.nerf_dim, str(self.perturb), self.encoding)
 
     def _generate_actions(self, gateset: str):
         """
@@ -329,9 +330,6 @@ class QCircuitParser(Parser):
             epsilon = re.search(r'e(\d+)\.(\d+)', arg)
             nerf_dim = re.search(r'L(\d+).*', arg)
             encoding = re.search('[HQ]', arg)
-            synthetiq_gateset = re.search('S', arg)
-            if synthetiq_gateset is not None:
-                args_dict['gateset'] = 'CliffT_S'
             if num_qubits is not None:
                 args_dict['num_qubits'] = int(num_qubits.group(1))
             if epsilon is not None:
@@ -350,6 +348,8 @@ class QCircuitParser(Parser):
                 args_dict['perturb'] = True
             elif arg == 'R':
                 args_dict['random_goal'] = True
+            elif arg == 'S':
+                args_dict['gateset'] = 'CliffT_S'
         return args_dict
 
     def help(self) -> str:
