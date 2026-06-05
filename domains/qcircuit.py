@@ -211,6 +211,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self.random_goal = random_goal
         self.gateset = gateset
 
+        self._identity = tensor_product([I] * num_qubits)
         self._generate_actions(gateset)
 
     def __repr__(self) -> str:
@@ -247,7 +248,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                         k += 1
     
     def actions_to_indices(self, actions: List[QAction]) -> List[int]:
-        return [self.actions.index(x) for x in actions]
+        return [x.action for x in actions]
 
     def sample_start_states(self, num_states: int) -> List[QState]:
         """
@@ -256,7 +257,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         @param num_states: Number of states to generate
         @returns: Generated states
         """
-        return [QState(tensor_product([I] * self.num_qubits)) for _ in range(num_states)]
+        return [QState(self._identity) for _ in range(num_states)]
 
     def get_actions_fixed(self) -> List[List[QAction]]:
         return [x for x in self.actions]
@@ -277,7 +278,9 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         if self.random_goal:
             return [QGoal(random_unitary(2 ** self.num_qubits).data) for _ in range(len(states_start))]
 
-        U_b = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states_start, states_goal)])
+        S = np.array([s.unitary for s in states_start])
+        G = np.array([s.unitary for s in states_goal])
+        U_b = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         if self.perturb:
             U_pt = perturb_unitary_random_batch_strict(U_b, (1/np.sqrt(2)) * self.epsilon)
             return [QGoal(x) for x in U_pt]
@@ -291,8 +294,9 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         @param goals: List of goals to check against
         @returns: List of bools representing solved/not-solved
         """
-        return [unitary_distance(state.unitary, goal.unitary) <= self.epsilon \
-                for (state, goal) in zip(states, goals)]
+        Us = np.array([s.unitary for s in states])
+        Cs = np.array([g.unitary for g in goals])
+        return list(unitary_distance_batch(Us, Cs) <= self.epsilon)
 
     def string_to_action(self, act_str: str) -> QAction:
         return self.actions[int(act_str)]
@@ -310,10 +314,9 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [1]
 
     def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
-        # calculating overall transformation from start to goal unitary
-        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-
-        # converting to nnet input based on encoding
+        S = np.array([s.unitary for s in states])
+        G = np.array([g.unitary for g in goals])
+        total_unitaries = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding, nerf_dim=self.nerf_dim)]
 
 
@@ -359,10 +362,9 @@ class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
         return self.domain.num_qubits
 
     def to_np(self, states: List[QState], goals: List[QGoal]) -> List[NDArray]:
-        # calculating overall transformation from start to goal unitary
-        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-
-        # converting to nnet input based on encoding
+        S = np.array([s.unitary for s in states])
+        G = np.array([g.unitary for g in goals])
+        total_unitaries = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
 
@@ -372,8 +374,7 @@ class QCircuitNNetInputFix(StateGoalActFixIn[QCircuit, QState, QGoal, QAction]):
         return self.domain.num_qubits
 
     def to_np(self, states: List[QState], goals: List[QGoal], actions_l: List[List[QAction]]) -> List[NDArray]:
-        # calculating overall transformation from start to goal unitary
-        total_unitaries = np.array([y.unitary @ invert_unitary(x.unitary) for (x, y) in zip(states, goals)])
-
-        # converting to nnet input based on encoding
+        S = np.array([s.unitary for s in states])
+        G = np.array([g.unitary for g in goals])
+        total_unitaries = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]

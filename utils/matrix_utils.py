@@ -81,6 +81,19 @@ def phase_align(U: NDArray) -> NDArray:
     return W
 
 
+def phase_align_batch(Us: NDArray) -> NDArray:
+    """Batched version of phase_align for arrays of shape [B, N, N]."""
+    N = Us.shape[1]
+    mu = (1/(N**2)) * np.sum(Us ** 2, axis=(1, 2))  # [B]
+    mu = np.where(mu == 0.0, 1.0, mu)
+    mu_norm = mu / np.abs(mu)
+    mu_half = mu_norm * np.exp(-1j * np.angle(mu_norm) / 2)
+    Ws = np.conj(mu_half)[:, None, None] * Us  # [B, N, N]
+    flip = np.real(Ws[:, 0, 0]) < 0
+    Ws[flip] *= np.exp(1j * np.pi)
+    return Ws
+
+
 def hash_unitary(unitary: NDArray, tolerance: float = 0.001) -> int:
     """Creates fixed-length representation of unitary operator"""
     return hash(tuple(np.round(phase_align(unitary).flatten() / tolerance)))
@@ -89,12 +102,20 @@ def hash_unitary(unitary: NDArray, tolerance: float = 0.001) -> int:
 def unitary_distance(U: NDArray, C: NDArray) -> float:
     """Computes the distance between two unitaries"""
     # from paper 'Synthetiq: Fast and Versatile Quantum Circuit Synthesis'
-    M = np.ones(U.shape, dtype=np.complex128)
-    tr_cu = np.trace(np.matmul(invert_unitary(M * C), M * U))
+    tr_cu = np.trace(np.matmul(invert_unitary(C), U))
     if tr_cu == 0.: tr_cu = 1.
-    num = np.linalg.norm(M * U - (tr_cu / np.abs(tr_cu)) * M * C)
-    d_sc = num / np.sqrt(np.linalg.norm(M))
-    return d_sc
+    num = np.linalg.norm(U - (tr_cu / np.abs(tr_cu)) * C)
+    return num / np.sqrt(U.shape[0])
+
+
+def unitary_distance_batch(Us: NDArray, Cs: NDArray) -> NDArray:
+    """Batched unitary_distance for arrays of shape [B, N, N]."""
+    tr_cu = np.trace(np.matmul(np.conj(Cs).transpose(0, 2, 1), Us), axis1=1, axis2=2)
+    tr_cu = np.where(tr_cu == 0., 1., tr_cu)
+    phase = tr_cu / np.abs(tr_cu)
+    diff = Us - phase[:, None, None] * Cs
+    norms = np.linalg.norm(diff.reshape(len(Us), -1), axis=1)
+    return norms / np.sqrt(Us.shape[1])
 
 
 def invert_unitary(U: NDArray) -> NDArray:
@@ -151,11 +172,9 @@ def unitaries_to_nnet_input(Us: NDArray, encoding: str = 'matrix', nerf_dim: int
     inps_flat: NDArray
     match encoding:
         case 'matrix':
-            for i, U in enumerate(Us):
-                Us[i] = phase_align(U)
-            u_flat = [x.flatten() for x in Us]
-            u_final = [np.hstack([np.real(x), np.imag(x)]) for x in u_flat]
-            inps_flat = np.vstack(u_final)
+            Us = phase_align_batch(Us)
+            flat = Us.reshape(len(Us), -1)
+            inps_flat = np.hstack([np.real(flat), np.imag(flat)])
         case 'hurwitz':
             inps_flat = su_encode_to_features_np(Us)
         case 'quaternion':

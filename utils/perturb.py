@@ -36,12 +36,9 @@ def hs_distance_batch(U_B, V_B, *, normalized=True):
 
 def is_unitary_batch(U_B):
     B, n, _ = U_B.shape
-    eye = np.eye(n, dtype=np.complex128)
-    errs = np.empty(B, dtype=np.float64)
-    for b in range(B):
-        G = U_B[b].conj().T @ U_B[b]
-        errs[b] = np.linalg.norm(G - eye, 'fro')
-    return errs
+    G = np.matmul(U_B.conj().transpose(0, 2, 1), U_B)
+    diff = G - np.eye(n, dtype=np.complex128)[None, :, :]
+    return np.linalg.norm(diff.reshape(B, -1), axis=1)
 
 def _rand_hermitian_batch(B, n, rng):
     X = rng.standard_normal((B, n, n)) + 1j * rng.standard_normal((B, n, n))
