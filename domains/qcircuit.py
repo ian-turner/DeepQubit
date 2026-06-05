@@ -265,13 +265,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return "index of gate action (actions: %s)" % (str(self.actions))
 
     def next_state(self, states: List[QState], actions: List[QAction]) -> Tuple[List[QState], List[float]]:
-        next_states = []
-        for state, action in zip(states, actions):
-            next_state = action.apply_to(state)
-            next_states.append(next_state)
-
-        transition_costs = [x.cost for x in actions]
-        return next_states, transition_costs
+        A = np.array([a._full_unitary for a in actions])
+        B = np.array([s.unitary for s in states])
+        new_unitaries = np.matmul(A, B).astype(np.complex128)
+        return [QState(u) for u in new_unitaries], [a.cost for a in actions]
 
     def sample_goal_from_state(self, states_start: List[QState], states_goal: List[QState]) -> List[QGoal]:
         """
