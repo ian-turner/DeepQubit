@@ -14,7 +14,7 @@ from deepxube.factories.domain_factory import domain_factory
 from deepxube.factories.nnet_input_factory import register_nnet_input
 
 from utils.matrix_utils import *
-from utils.perturb import perturb_unitary_random_batch_strict
+from utils.perturb import perturb_unitary_givens_batch
 
 
 class QState(State):
@@ -282,7 +282,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         G = np.array([s.unitary for s in states_goal])
         U_b = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         if self.perturb:
-            U_pt = perturb_unitary_random_batch_strict(U_b, (1/np.sqrt(2)) * self.epsilon)
+            U_pt = perturb_unitary_givens_batch(U_b, self.epsilon)
             return [QGoal(x) for x in U_pt]
         else: return [QGoal(x) for x in U_b]
     

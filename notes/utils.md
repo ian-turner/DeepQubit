@@ -29,9 +29,18 @@ matrix
 
 Randomly perturbs a batch of unitaries within an ε-ball under Hilbert–Schmidt distance.
 
-Main function: `perturb_unitary_random_batch_strict(U_B, epsilon, ...)`.
+Two functions are provided:
 
-Algorithm: sample a random Hermitian direction H, compute t via bisection so that `‖U - exp(itH)U‖ ≤ ε`, apply strict clamp with safety margin. Guarantees `d ∈ [0, ε]` numerically.
+| Function | Direction | Cost | Notes |
+|----------|-----------|------|-------|
+| `perturb_unitary_random_batch_strict` | Isotropic (full Lie algebra) | O(n³) — eigendecomp + vectorized bisection | Default; used by domain |
+| `perturb_unitary_givens_batch` | Single 2D plane (non-isotropic) | O(n) — closed-form distance inversion | ~20× faster; ε ≤ 2/√n |
+
+Both exploit `d(U, WU) = d(I, W)` (right-multiply isometry) — distance never depends on U. Both use the same normalization as `unitary_distance_batch` (Frobenius / √n), so epsilon is directly comparable to `self.epsilon` in the domain.
+
+**Lie algebra approach**: samples random unit-Frobenius Hermitian H, finds t via vectorized bisection (53 iters, float64 exact) on `[0, π/λ_max]` where d(t) is provably monotone.
+
+**Givens approach**: picks a random (i,j) plane and phase φ, computes `α = 2 arcsin(d√n / (2√2))` directly (no bisection). Updates only 2 rows of U. Constraint: ε ≤ 2√2/√n (≈ 1.41 for n=4).
 
 Used in `QCircuit.sample_goal_from_state` when `perturb=True`.
 
