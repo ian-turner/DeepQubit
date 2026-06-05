@@ -107,77 +107,56 @@ class ControlledGate(QAction, ABC):
 
 
 class HGate(OneQubitGate):
-    unitary = (1/np.sqrt(2)) * np.array([[1, 1],
-                                         [1, -1]])
+    unitary = (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]])
     cost = 1.0
     name = 'h'
 
-
 class SGate(OneQubitGate):
-    unitary = np.array([[1, 0],
-                        [0, 1j]])
+    unitary = np.array([[1, 0], [0, 1j]])
     cost = 1.0
     name = 's'
-
 
 class SdgGate(OneQubitGate):
-    unitary = np.array([[1, 0],
-                        [0, -1j]])
+    unitary = np.array([[1, 0], [0, -1j]])
     cost = 1.0
     name = 's'
 
-
 class ZGate(OneQubitGate):
-    unitary = np.array([[1, 0],
-                        [0, -1]])
+    unitary = np.array([[1, 0], [0, -1]])
     cost = 1.0
     name = 'z'
 
-
 class TGate(OneQubitGate):
-    unitary = np.array([[1, 0],
-                        [0, np.exp(1j*np.pi/4)]])
+    unitary = np.array([[1, 0], [0, np.exp(1j*np.pi/4)]])
     cost = 1.0
     name = 't'
-
 
 class TdgGate(OneQubitGate):
-    unitary = np.array([[1, 0],
-                        [0, np.exp(-1j*np.pi/4)]])
+    unitary = np.array([[1, 0], [0, np.exp(-1j*np.pi/4)]])
     cost = 1.0
     name = 't'
 
-
 class XGate(OneQubitGate):
-    unitary = np.array([[0, 1],
-                        [1, 0]])
+    unitary = np.array([[0, 1], [1, 0]])
     cost = 1.0
     name = 'x'
 
-
 class YGate(OneQubitGate):
-    unitary = np.array([[0, -1j],
-                        [1j, 0]])
+    unitary = np.array([[0, -1j], [1j, 0]])
     cost = 1.0
     name = 'y'
 
-
 class CNOTGate(ControlledGate):
-    unitary = np.array([[0, 1],
-                        [1, 0]])
+    unitary = np.array([[0, 1], [1, 0]])
     cost = 1.0
     name = 'cx'
 
-
 class CZGate(ControlledGate):
-    unitary = np.array([[1, 0],
-                        [0, -1]])
+    unitary = np.array([[1, 0], [0, -1]])
     cost = 1.0
 
-
 class CHGate(ControlledGate):
-    unitary = (1/np.sqrt(2)) * np.array([[1, 1],
-                                         [1, -1]])
+    unitary = (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]])
     cost = 1.0
 
 
@@ -187,6 +166,7 @@ def get_gate_set(gateset: str) -> List[QAction]:
             return [HGate, SGate, YGate, TGate, XGate, ZGate, CNOTGate]
         case 'CliffT_S':
             return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
+
 
 @domain_factory.register_class('qcircuit')
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
@@ -354,18 +334,6 @@ class QCircuitParser(Parser):
 
     def help(self) -> str:
         return 'An integer for the number of qubits. E.g. \'qcircuit.3\''
-
-
-@register_nnet_input('qcircuit', 'qcircuit_nnet_input')
-class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
-    def get_input_info(self) -> int:
-        return self.domain.num_qubits
-
-    def to_np(self, states: List[QState], goals: List[QGoal]) -> List[NDArray]:
-        S = np.array([s.unitary for s in states])
-        G = np.array([g.unitary for g in goals])
-        total_unitaries = np.matmul(G, np.conj(S).transpose(0, 2, 1))
-        return [unitaries_to_nnet_input(total_unitaries, encoding=self.encoding)]
 
 
 @register_nnet_input('qcircuit', 'qcircuit_nnet_input_fix_act')
