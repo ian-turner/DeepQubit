@@ -367,7 +367,7 @@ class QCircutNNetInput(StateGoalIn[QCircuit, QState, QGoal]):
 
 
 @register_nnet_input('qcircuit', 'qcircuit_nnet_input_fix_act')
-class QCircutNNetInput(StateGoalActFixIn[QCircuit, QState, QGoal, QAction]):
+class QCircuitNNetInputFix(StateGoalActFixIn[QCircuit, QState, QGoal, QAction]):
     def get_input_info(self) -> int:
         return self.domain.num_qubits
 
