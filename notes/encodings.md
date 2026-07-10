@@ -4,6 +4,8 @@
 
 Entry point: `unitaries_to_nnet_input(Us, encoding, nerf_dim)` in `matrix_utils.py`.
 
+Encodings can be concatenated feature-wise by joining names with `+` (e.g. `'hurwitz+quaternion'`, domain string `H+Q`). Features are stacked in the order listed; NeRF applies on top of the concatenated vector.
+
 ## Matrix (default)
 
 Phase-aligns each unitary (removes global phase ambiguity), then flattens to real/imag parts:
@@ -35,13 +37,13 @@ For each scalar x, produces `[sin(2^0 x), cos(2^0 x), ..., sin(2^(L-1) x), cos(2
 
 Final size: `2 × L × base_size`.
 
-## Input Size Formula (`get_input_info_flat_sg`)
+## Input Size Formula (`encoding_size` in `matrix_utils.py`)
 
 ```python
-match encoding:
-    case 'matrix':    N = 2 ** (2 * num_qubits + 1)
-    case 'hurwitz':   N = (2 ** num_qubits) ** 2 - 1
-    case 'quaternion': N = 4
+sizes = {'matrix':     2 ** (2 * num_qubits + 1),
+         'hurwitz':    (2 ** num_qubits) ** 2 - 1,
+         'quaternion': 4}
+N = sum(sizes[enc] for enc in encoding.split('+'))
 # With NeRF:
 size = 2 * nerf_dim * N if nerf_dim > 0 else N
 ```

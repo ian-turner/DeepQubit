@@ -40,7 +40,7 @@ Registered as `'qcircuit'` with deepxube's `domain_factory`.
 | `num_qubits` | — | required |
 | `epsilon` | 0.01 | solve tolerance |
 | `gateset` | `'CliffT'` | see gate sets |
-| `encoding` | `'matrix'` | nnet input encoding |
+| `encoding` | `'matrix'` | nnet input encoding; `+`-joined names concatenate (e.g. `'hurwitz+quaternion'`) |
 | `nerf_dim` | 0 | NeRF embedding dim |
 | `perturb` | False | perturb goals during training |
 | `random_goal` | False | sample random unitary goals |

@@ -167,18 +167,28 @@ def nerf_embedding(xs: NDArray, dim: int) -> NDArray:
     return ys
 
 
+def encoding_size(encoding: str, num_qubits: int) -> int:
+    """Feature size of an encoding, which may be several encodings joined by '+'"""
+    sizes = {'matrix': 2 ** (2 * num_qubits + 1),
+             'hurwitz': (2 ** num_qubits) ** 2 - 1,
+             'quaternion': 4}
+    return sum(sizes[enc] for enc in encoding.split('+'))
+
+
 def unitaries_to_nnet_input(Us: NDArray, encoding: str = 'matrix', nerf_dim: int = 0) -> NDArray:
-    """Converts a batch of unitaries to nnet input format"""
-    inps_flat: NDArray
-    match encoding:
-        case 'matrix':
-            Us = phase_align_batch(Us)
-            flat = Us.reshape(len(Us), -1)
-            inps_flat = np.hstack([np.real(flat), np.imag(flat)])
-        case 'hurwitz':
-            inps_flat = su_encode_to_features_np(Us)
-        case 'quaternion':
-            inps_flat = unitaries_to_quaternions(Us)
+    """Converts a batch of unitaries to nnet input format.
+    Encodings joined by '+' (e.g. 'hurwitz+quaternion') are concatenated feature-wise."""
+    parts: List[NDArray] = []
+    for enc in encoding.split('+'):
+        match enc:
+            case 'matrix':
+                flat = phase_align_batch(Us).reshape(len(Us), -1)
+                parts.append(np.hstack([np.real(flat), np.imag(flat)]))
+            case 'hurwitz':
+                parts.append(su_encode_to_features_np(Us))
+            case 'quaternion':
+                parts.append(unitaries_to_quaternions(Us))
+    inps_flat = parts[0] if len(parts) == 1 else np.hstack(parts)
     if nerf_dim > 0:
         return nerf_embedding(inps_flat, nerf_dim)
     return inps_flat

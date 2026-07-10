@@ -282,15 +282,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         return self.actions[int(act_str)]
 
     def get_input_info_flat_sg(self) -> Tuple[List[int], List[int]]:
-        N: int
-        match self.encoding:
-            case 'matrix':
-                N = 2 ** (2 * self.num_qubits + 1)
-            case 'hurwitz':
-                N = (2 ** self.num_qubits) ** 2 - 1
-            case 'quaternion':
-                N = 4
-
+        N = encoding_size(self.encoding, self.num_qubits)
         return [2 * self.nerf_dim * N if self.nerf_dim > 0 else N], [1]
 
     def to_np_flat_sg(self, states: List[QState], goals: List[QGoal]) -> List[np.ndarray[float]]:
@@ -309,7 +301,7 @@ class QCircuitParser(Parser):
             num_qubits = re.search(r'n(\d+)', arg)
             epsilon = re.search(r'e(\d+)\.(\d+)', arg)
             nerf_dim = re.search(r'L(\d+).*', arg)
-            encoding = re.search('[HQ]', arg)
+            encoding = re.search(r'[MHQ](?:\+[MHQ])*', arg)
             if num_qubits is not None:
                 args_dict['num_qubits'] = int(num_qubits.group(1))
             if epsilon is not None:
@@ -317,13 +309,8 @@ class QCircuitParser(Parser):
             if nerf_dim is not None:
                 args_dict['nerf_dim'] = int(nerf_dim.group(1))
             if encoding is not None:
-                match encoding.group():
-                    case 'M':
-                        args_dict['encoding'] = 'matrix'
-                    case 'H':
-                        args_dict['encoding'] = 'hurwitz'
-                    case 'Q':
-                        args_dict['encoding'] = 'quaternion'
+                enc_names = {'M': 'matrix', 'H': 'hurwitz', 'Q': 'quaternion'}
+                args_dict['encoding'] = '+'.join(enc_names[c] for c in encoding.group().split('+'))
             elif arg == 'P':
                 args_dict['perturb'] = True
             elif arg == 'R':

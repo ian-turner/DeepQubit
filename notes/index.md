@@ -33,6 +33,8 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | `L<D>` | NeRF embedding dimension |
 | `H` | Hurwitz encoding |
 | `Q` | Quaternion encoding |
+| `M` | Matrix encoding (default) |
+| `H+Q`, `Q+H+M`, ... | Concatenated encodings (any `+`-joined combo of M/H/Q) |
 | `P` | Perturb goals |
 | `R` | Random goals |
 | `S` | CliffT_S gate set |
