@@ -1,0 +1,2 @@
+source "configs/n3_exact"
+DOMAIN="n3_e0.000001_L15"

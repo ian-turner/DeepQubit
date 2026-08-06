@@ -1,0 +1,3 @@
+source "configs/n1_e0.01"
+DOMAIN="n1_e0.01_H+M+Q_P_L10"
+

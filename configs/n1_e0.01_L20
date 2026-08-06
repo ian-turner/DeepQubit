@@ -1,2 +1,2 @@
 source "configs/n1_e0.01"
-DOMAIN="n1_e0.01_P_Q+M"
+DOMAIN="n1_e0.01_P_L20"
