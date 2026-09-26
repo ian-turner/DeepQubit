@@ -11,7 +11,7 @@ Core unitary math used throughout the domain.
 | `tensor_product(mats)` | Kronecker product of a list of matrices |
 | `invert_unitary(U)` | Conjugate transpose U† |
 | `unitary_distance(U, C)` | Distance metric from Synthetiq paper; phase-invariant |
-| `phase_align(U)` | Removes global phase so equivalent unitaries hash equal |
+| `phase_align(U)`, `phase_align_batch(Us)` | Removes global phase by making the largest-magnitude entry real and positive; ties within `tol` pick the first entry in row-major order, so the result is stable under fp noise on Clifford+T matrices |
 | `hash_unitary(U, tol=0.001)` | Phase-aligns, rounds, hashes |
 | `load_matrix_from_file(f)` | Loads `.txt` or `.npy`; returns `(num_qubits, matrix)` |
 | `save_matrix_to_file(M, f)` | Saves to `.txt` format |

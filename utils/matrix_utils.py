@@ -65,33 +65,21 @@ def tensor_product(mats: List[NDArray]) -> NDArray:
     return current
 
 
+def phase_align_batch(Us: NDArray, tol: float = 1e-6) -> NDArray:
+    """Removes the global phase of each unitary in [B, N, N] by making its largest-magnitude
+    entry real and positive. Ties within tol resolve to the first entry in row-major order,
+    so the choice is stable under floating-point noise (Clifford+T matrices are full of exact
+    ties and exact zeros, which made the old sum(U**2) / sign-of-U[0,0] rule ill-conditioned)."""
+    flat = Us.reshape(len(Us), -1)
+    mags = np.abs(flat)
+    k = np.argmax(mags >= mags.max(axis=1, keepdims=True) - tol, axis=1)
+    e = flat[np.arange(len(Us)), k]
+    return Us * np.conj(e / np.abs(e))[:, None, None]
+
+
 def phase_align(U: NDArray) -> NDArray:
-    """Aligns the global phase of a unitary so that
-       phase_align(U) == phase_align(W) if U=e^(i*theta)W"""
-    N = U.shape[0]
-    mu = (1/(N**2)) * np.sum(U ** 2)
-    if mu == 0.0:
-        mu = 1.0
-    mu_norm = mu / np.abs(mu)
-    mu_half = mu_norm * np.exp(-1j*np.angle(mu_norm)/2)
-    mu_conj = np.conj(mu_half)
-    W = mu_conj * U
-    if np.real(W[0][0]) < 0:
-        W = np.exp(1j*np.pi) * W
-    return W
-
-
-def phase_align_batch(Us: NDArray) -> NDArray:
-    """Batched version of phase_align for arrays of shape [B, N, N]."""
-    N = Us.shape[1]
-    mu = (1/(N**2)) * np.sum(Us ** 2, axis=(1, 2))  # [B]
-    mu = np.where(mu == 0.0, 1.0, mu)
-    mu_norm = mu / np.abs(mu)
-    mu_half = mu_norm * np.exp(-1j * np.angle(mu_norm) / 2)
-    Ws = np.conj(mu_half)[:, None, None] * Us  # [B, N, N]
-    flip = np.real(Ws[:, 0, 0]) < 0
-    Ws[flip] *= np.exp(1j * np.pi)
-    return Ws
+    """Single-matrix version of phase_align_batch"""
+    return phase_align_batch(U[None])[0]
 
 
 def hash_unitary(unitary: NDArray, tolerance: float = 0.001) -> int:

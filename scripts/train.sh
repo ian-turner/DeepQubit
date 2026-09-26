@@ -1,30 +1,21 @@
 #!/bin/bash
-
-export CUDA_LAUNCH_BLOCKING=1
+# Usage: bash scripts/train.sh [config]   (deepxube >= 0.3 CLI)
 
 CONFIG=${1:-configs/test}
 source "$CONFIG"
 
-
-mkdir -p tmp/$DOMAIN
+# heuristic kind follows the pathfinder: *_q -> Q-function, otherwise V-function
+case "$PATHFIND" in
+    *_q*) FN="heurq_fixout"; UP="up_rl_q" ;;
+    *)    FN="heurv";        UP="up_rl_v" ;;
+esac
 
 deepxube train --domain qcircuit.$DOMAIN \
-               --heur $HEUR \
-               --heur_type V \
+               --fn $FN,$HEUR \
                --pathfind $PATHFIND \
+               --up $UP.${PROCS}p_${STEP_MAX}sm_${SEARCH_ITRS}sitrs_${UP_ITRS:-100}up_${UP_GEN_ITRS:-$UP_ITRS}upg \
+               --tr tr_h.${BATCH_SIZE}bs_${MAX_ITRS}maxit_${CHECKPOINT:-0}chkpt \
                --dir tmp/$DOMAIN/$HEUR \
-               --batch_size $BATCH_SIZE \
-               --max_itrs $MAX_ITRS \
-               --procs $PROCS \
-	       --backup $BACKUP \
-	       --up_itrs $UP_ITRS \
-	       --up_gen_itrs $UP_GEN_ITRS \
-               --step_max $STEP_MAX \
-               --search_itrs $SEARCH_ITRS \
                --t_file $TEST_FILE \
                --t_pathfinds $PATHFIND \
-               --t_search_itrs $TEST_SEARCH_ITRS \
-	       --chkpt $CHECKPOINT \
-               --up_v
-
-# set bellman backup to -1
+               --t_search_itrs $TEST_SEARCH_ITRS
