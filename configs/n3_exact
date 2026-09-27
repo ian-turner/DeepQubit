@@ -1,4 +1,4 @@
-DOMAIN="n3_e0.000001"
+DOMAIN="n3_e0.000001_I"
 HEUR="resnet_fc.1000H_4B_bn"
 PATHFIND="graph_v.1B_1W_0.0E"
 TEST_FILE="tmp/n3_goals.pkl"

@@ -166,6 +166,8 @@ def get_gate_set(gateset: str) -> List[QAction]:
             return [HGate, SGate, YGate, TGate, XGate, ZGate, CNOTGate]
         case 'CliffT_S':
             return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
+        case 'CliffT_inv'
+            return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
 
 
 @domain_factory.register_class('qcircuit')
@@ -317,6 +319,8 @@ class QCircuitParser(Parser):
                 args_dict['random_goal'] = True
             elif arg == 'S':
                 args_dict['gateset'] = 'CliffT_S'
+            elif arg == 'I':
+                args_dict['gateset'] = 'CliffT_inv'
         return args_dict
 
     def help(self) -> str:
