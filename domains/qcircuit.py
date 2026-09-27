@@ -166,7 +166,7 @@ def get_gate_set(gateset: str) -> List[QAction]:
             return [HGate, SGate, YGate, TGate, XGate, ZGate, CNOTGate]
         case 'CliffT_S':
             return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
-        case 'CliffT_inv'
+        case 'CliffT_inv':
             return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
 
 
