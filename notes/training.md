@@ -19,6 +19,8 @@ source setup.sh   # adds repo root to PYTHONPATH; run in every new shell
 | `PROCS`, `STEP_MAX`, `SEARCH_ITRS`, `UP_ITRS`, `UP_GEN_ITRS` | 24, 30, 1000, 100, 100 | Updater args (`--up up_rl_v.<p>p_<sm>sm_<sitrs>sitrs_<up>up_<upg>upg`) |
 | `TEST_FILE`, `TEST_SEARCH_ITRS` | `tmp/n3_goals.pkl`, 100 | Test-set args (accepted but unused by deepxube 0.3.2) |
 
+`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_G` is the same with structured macro-word goals (`n3_e0.000001_I_G`, see [domain](domain.md#structured-macro-goals--flag-g)).
+
 deepxube arg strings are `<value><name>` tokens joined by `_`; see `deepxube updater_info`, `trainer_info`, `nnet_info` for the names.
 
 Output goes to `tmp/<DOMAIN>/<HEUR>/`:
@@ -38,6 +40,13 @@ deepxube problem_inst --domain qcircuit.n1_R --step_max 1 --num 1000 \
                       --file tmp/n1_goals_R_1K.pkl --redo
 ```
 Generates 1000 random 1-qubit goals by random walks from identity.
+
+## Checking Goal Reachability (`scripts/check_goals.py`)
+
+```bash
+python scripts/check_goals.py tmp/n3_goals_all8.pkl --output tmp/n3_goals.pkl
+```
+Prints each goal's determinant as a power of ω and whether it is exactly reachable (see [data](data.md#reachability)); `--output` writes only the reachable goals.
 
 ## Trasyn Benchmark (`scripts/trasyn_bench.py`)
 
