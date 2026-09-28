@@ -21,6 +21,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Goals from .txt targets | `python scripts/goals_from_txt.py --input <files> --output <out.pkl>` |
 | Paths to QASM | `python scripts/paths_to_qasm.py --input <results.pkl> --output <dir>` |
 | Trasyn benchmark | `python scripts/trasyn_bench.py <goals.pkl> --epsilon 0.01` |
+| Check goal reachability | `python scripts/check_goals.py <goals.pkl> [--output <reachable.pkl>]` |
 
 ## Domain String Syntax
 
@@ -38,4 +39,5 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | `P` | Perturb goals |
 | `R` | Random goals |
 | `S` | CliffT_S gate set |
-| `I` | CliffT_inv gate set |
+| `I` | CliffT_inv gate set (same gates as `S`) |
+| `G`, `G<frac>` | Structured macro-word goals for that fraction of training instances (default 0.5) |
