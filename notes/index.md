@@ -38,3 +38,4 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | `P` | Perturb goals |
 | `R` | Random goals |
 | `S` | CliffT_S gate set |
+| `I` | CliffT_inv gate set |

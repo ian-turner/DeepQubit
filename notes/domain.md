@@ -20,14 +20,28 @@ QAction (ABC)
     ├── CNOTGate, CZGate, CHGate
 ```
 
+## Gates
+
+Each gate class has a `name` attribute that is its OpenQASM identifier (`stdgates.inc`). `__repr__` emits `<name> qs[i]` / `<name> qs[c], qs[t]`, which `scripts/paths_to_qasm.py` writes verbatim, so names must match the QASM standard library exactly.
+
+| Class | `name` | Class | `name` |
+|-------|--------|-------|--------|
+| HGate | `h` | XGate | `x` |
+| SGate | `s` | YGate | `y` |
+| SdgGate | `sdg` | ZGate | `z` |
+| TGate | `t` | CNOTGate | `cx` |
+| TdgGate | `tdg` | CZGate | `cz` |
+| | | CHGate | `ch` |
+
 ## Gate Sets
 
 Defined in `get_gate_set(gateset: str)`:
 
-| Name | Gates |
-|------|-------|
-| `CliffT` | H, S, Y, T, X, Z, CNOT |
-| `CliffT_S` | H, S, Sdg, T, Tdg, CNOT |
+| Name | Flag | Gates |
+|------|------|-------|
+| `CliffT` | (default) | H, S, Y, T, X, Z, CNOT |
+| `CliffT_S` | `S` | H, S, Sdg, T, Tdg, CNOT |
+| `CliffT_inv` | `I` | H, S, Sdg, T, Tdg, CNOT (same gates as `CliffT_S`) |
 
 `_generate_actions` expands each gate over all valid qubit assignments. One-qubit gates: N instances. Controlled gates: N×(N-1) instances (i≠j).
 

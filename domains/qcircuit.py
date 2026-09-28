@@ -119,7 +119,7 @@ class SGate(OneQubitGate):
 class SdgGate(OneQubitGate):
     unitary = np.array([[1, 0], [0, -1j]])
     cost = 1.0
-    name = 's'
+    name = 'sdg'
 
 class ZGate(OneQubitGate):
     unitary = np.array([[1, 0], [0, -1]])
@@ -134,7 +134,7 @@ class TGate(OneQubitGate):
 class TdgGate(OneQubitGate):
     unitary = np.array([[1, 0], [0, np.exp(-1j*np.pi/4)]])
     cost = 1.0
-    name = 't'
+    name = 'tdg'
 
 class XGate(OneQubitGate):
     unitary = np.array([[0, 1], [1, 0]])
@@ -154,10 +154,12 @@ class CNOTGate(ControlledGate):
 class CZGate(ControlledGate):
     unitary = np.array([[1, 0], [0, -1]])
     cost = 1.0
+    name = 'cz'
 
 class CHGate(ControlledGate):
     unitary = (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]])
     cost = 1.0
+    name = 'ch'
 
 
 def get_gate_set(gateset: str) -> List[QAction]:
