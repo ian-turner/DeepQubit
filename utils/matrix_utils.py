@@ -1,4 +1,5 @@
 import numpy as np
+from functools import lru_cache
 from numpy import trace, log, exp, diag, diagonal
 from numpy.linalg import det, eig, inv, svd
 from numpy.typing import NDArray
@@ -82,9 +83,27 @@ def phase_align(U: NDArray) -> NDArray:
     return phase_align_batch(U[None])[0]
 
 
+@lru_cache(maxsize=None)
+def _hash_weights(size: int) -> NDArray:
+    """Fixed random odd int64 weights for hash_unitary_batch (seeded, so hashes agree across processes)"""
+    w = np.random.default_rng(0x5EED).integers(0, 2 ** 64, size=size, dtype=np.uint64) | np.uint64(1)
+    return w.view(np.int64)
+
+
+def hash_unitary_batch(Us: NDArray, tolerance: float = 0.001) -> NDArray:
+    """Hashes each unitary in [B, N, N]: phase-align, round Re/Im to multiples of tolerance, then a fixed
+    random linear map mod 2^64 over the rounded integers (int64 matmul wraps). Unitaries in the same
+    rounding bins get the same hash, as with the old per-matrix tuple hash, but in one vectorized pass."""
+    if len(Us) == 0:
+        return np.zeros(0, dtype=np.int64)
+    A = phase_align_batch(Us).reshape(len(Us), -1)
+    R = np.rint(np.concatenate([A.real, A.imag], axis=1) / tolerance).astype(np.int64)
+    return R @ _hash_weights(R.shape[1])
+
+
 def hash_unitary(unitary: NDArray, tolerance: float = 0.001) -> int:
-    """Creates fixed-length representation of unitary operator"""
-    return hash(tuple(np.round(phase_align(unitary).flatten() / tolerance)))
+    """Single-matrix version of hash_unitary_batch"""
+    return int(hash_unitary_batch(unitary[None], tolerance)[0])
 
 
 def unitary_distance(U: NDArray, C: NDArray) -> float:

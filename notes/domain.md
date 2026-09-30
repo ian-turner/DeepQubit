@@ -4,9 +4,9 @@
 
 ## Core Types
 
-**`QState`** — wraps a complex128 unitary matrix. Equality is `unitary_distance ≤ ε` (default 1e-6). Hash uses `hash_unitary` (phase-aligned, rounded).
+**`QState`** — wraps a complex128 unitary matrix. Equality is `unitary_distance ≤ ε` (default 1e-6). Hash is `hash_unitary` (phase-aligned, rounded), cached in `_hash`: the domain methods that create states in bulk (`next_state`, `sample_start_states`, macro goals, `sample_goal_from_state`) pass batch-computed hashes via `hash_unitary_batch` (`_make_states`); otherwise it is computed on first `__hash__` (also covers objects pickled before the cache existed). Per-state Python hashing had been the dominant CPU cost of search (~245 ms per 21k children at n=3 vs ~2 ms now).
 
-**`QGoal`** — same structure as `QState`; a separate class for the deepxube interface.
+**`QGoal`** — same structure as `QState` (including the cached hash); a separate class for the deepxube interface.
 
 **`QAction`** — abstract base. `apply_to(state)` left-multiplies the state unitary: `new_U = gate_U @ state_U`.
 

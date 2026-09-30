@@ -12,7 +12,7 @@ Core unitary math used throughout the domain.
 | `invert_unitary(U)` | Conjugate transpose U† |
 | `unitary_distance(U, C)` | Distance metric from Synthetiq paper; phase-invariant |
 | `phase_align(U)`, `phase_align_batch(Us)` | Removes global phase by making the largest-magnitude entry real and positive; ties within `tol` pick the first entry in row-major order, so the result is stable under fp noise on Clifford+T matrices |
-| `hash_unitary(U, tol=0.001)` | Phase-aligns, rounds, hashes |
+| `hash_unitary_batch(Us, tol=0.001)`, `hash_unitary(U)` | Phase-aligns, rounds Re/Im to multiples of `tol`, then a fixed seeded random linear map mod 2^64 over the rounded ints → int64 per unitary. Vectorized; same rounding bins (so same equality classes) as the old per-matrix `hash(tuple(...))`, and deterministic across processes |
 | `load_matrix_from_file(f)` | Loads `.txt` or `.npy`; returns `(num_qubits, matrix)` |
 | `save_matrix_to_file(M, f)` | Saves to `.txt` format |
 | `unitaries_to_nnet_input(Us, encoding, nerf_dim)` | Dispatch to encoding — see [encodings](encodings.md) |

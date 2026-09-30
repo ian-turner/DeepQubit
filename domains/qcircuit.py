@@ -20,15 +20,24 @@ from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_givens_batch
 
 
+def _cached_hash(obj: Any) -> int:
+    """The hash of a QState/QGoal, computed on first use unless the domain passed a batch-computed one
+    (getattr: objects unpickled from before the cache existed have no `_hash`)"""
+    if getattr(obj, '_hash', None) is None:
+        obj._hash = hash_unitary(obj.unitary)
+    return obj._hash
+
+
 class QState(State):
     # tolerance for comparing unitaries between states
     epsilon: float = 1e-6
 
-    def __init__(self, unitary: np.ndarray[np.complex128]):
+    def __init__(self, unitary: np.ndarray[np.complex128], hash_val: Optional[int] = None):
         self.unitary = unitary
-    
+        self._hash = hash_val
+
     def __hash__(self):
-        return hash_unitary(self.unitary)
+        return _cached_hash(self)
 
     def __eq__(self, other: Self):
         return unitary_distance(self.unitary, other.unitary) <= self.epsilon
@@ -38,11 +47,12 @@ class QGoal(Goal):
     # tolerance for comparing unitaries between goals
     epsilon: float = 1e-6
 
-    def __init__(self, unitary: np.ndarray[np.complex128]):
+    def __init__(self, unitary: np.ndarray[np.complex128], hash_val: Optional[int] = None):
         self.unitary = unitary
-    
+        self._hash = hash_val
+
     def __hash__(self):
-        return hash_unitary(self.unitary)
+        return _cached_hash(self)
 
     def __eq__(self, other: Self):
         return unitary_distance(self.unitary, other.unitary) <= self.epsilon
@@ -264,6 +274,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self.gateset = gateset
 
         self._identity = tensor_product([I] * num_qubits)
+        self._identity_hash = hash_unitary(self._identity)
         self._generate_actions(gateset)
         self._macro_words: List[List[QAction]] = self._generate_macro_words() if macro_frac > 0 else []
         if macro_frac > 0 and len(self._macro_words) == 0:
@@ -345,13 +356,13 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         num_steps (partial macros, i.e. the dense intermediate states of a decomposition); otherwise it is
         cut at the last macro boundary <= num_steps, so products of whole macros (Toffoli, CCZ, ...) are
         frequent goals rather than only appearing when num_steps happens to equal a word length"""
-        states_goal: List[QState] = []
+        Us: List[NDArray] = []
         for state, num_steps in zip(states_start, num_steps_l):
             U = state.unitary
             for act in self._macro_prefix(num_steps):
                 U = np.matmul(act._full_unitary, U)
-            states_goal.append(QState(U.astype(np.complex128)))
-        return states_goal
+            Us.append(U.astype(np.complex128))
+        return self._make_states(np.array(Us))
 
     def _macro_prefix(self, num_steps: int) -> List[QAction]:
         """Random macro words concatenated and cut to at most num_steps gates (see _macro_goal_states)"""
@@ -409,7 +420,7 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         @param num_states: Number of states to generate
         @returns: Generated states
         """
-        return [QState(self._identity) for _ in range(num_states)]
+        return [QState(self._identity, self._identity_hash) for _ in range(num_states)]
 
     def get_actions_fixed(self) -> List[List[QAction]]:
         return [x for x in self.actions]
@@ -421,7 +432,12 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         A = np.array([a._full_unitary for a in actions])
         B = np.array([s.unitary for s in states])
         new_unitaries = np.matmul(A, B).astype(np.complex128)
-        return [QState(u) for u in new_unitaries], [a.cost for a in actions]
+        return self._make_states(new_unitaries), [a.cost for a in actions]
+
+    @staticmethod
+    def _make_states(Us: NDArray) -> List[QState]:
+        """States for [B, N, N] unitaries, with hashes computed in one batch"""
+        return [QState(u, h) for u, h in zip(Us, hash_unitary_batch(Us).tolist())]
 
     def sample_goal_from_state(self, states_start: List[QState], states_goal: List[QState]) -> List[QGoal]:
         """
@@ -434,9 +450,8 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         G = np.array([s.unitary for s in states_goal])
         U_b = np.matmul(G, np.conj(S).transpose(0, 2, 1))
         if self.perturb:
-            U_pt = perturb_unitary_givens_batch(U_b, self.epsilon)
-            return [QGoal(x) for x in U_pt]
-        else: return [QGoal(x) for x in U_b]
+            U_b = perturb_unitary_givens_batch(U_b, self.epsilon)
+        return [QGoal(x, h) for x, h in zip(U_b, hash_unitary_batch(U_b).tolist())]
     
     def is_solved(self, states: List[QState], goals: List[QGoal]) -> List[bool]:
         """
