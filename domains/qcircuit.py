@@ -347,19 +347,23 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         frequent goals rather than only appearing when num_steps happens to equal a word length"""
         states_goal: List[QState] = []
         for state, num_steps in zip(states_start, num_steps_l):
-            acts: List[QAction] = []
-            boundary: int = 0
-            while len(acts) < num_steps:
-                word = self._macro_words[np.random.randint(len(self._macro_words))]
-                if len(acts) + len(word) <= num_steps:
-                    boundary = len(acts) + len(word)
-                acts.extend(word)
-            cut: int = num_steps if (np.random.uniform() < 0.5 or boundary == 0) else boundary
             U = state.unitary
-            for act in acts[:cut]:
+            for act in self._macro_prefix(num_steps):
                 U = np.matmul(act._full_unitary, U)
             states_goal.append(QState(U.astype(np.complex128)))
         return states_goal
+
+    def _macro_prefix(self, num_steps: int) -> List[QAction]:
+        """Random macro words concatenated and cut to at most num_steps gates (see _macro_goal_states)"""
+        acts: List[QAction] = []
+        boundary: int = 0
+        while len(acts) < num_steps:
+            word = self._macro_words[np.random.randint(len(self._macro_words))]
+            if len(acts) + len(word) <= num_steps:
+                boundary = len(acts) + len(word)
+            acts.extend(word)
+        cut: int = num_steps if (np.random.uniform() < 0.5 or boundary == 0) else boundary
+        return acts[:cut]
 
     def sample_problem_instances(self, num_steps_l: List[int], times: Optional[Times] = None) -> Tuple[List[QState], List[QGoal]]:
         """As the base class (identity start, random walk of num_steps, relative goal), except that a fraction

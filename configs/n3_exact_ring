@@ -1,0 +1,5 @@
+source "configs/n3_exact"
+DOMAIN_NAME="qcircuit_exact"
+DOMAIN="n3_I_B9+C2"
+TEST_FILE="data/n3_goals_exact.pkl"
+SOLVE_GOALS="data/n3_goals_exact.pkl"

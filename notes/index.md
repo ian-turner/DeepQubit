@@ -5,6 +5,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 ## Topics
 
 - [Domain](domain.md) — QCircuit state/action/goal types, gate sets, the deepxube interface
+- [Exact Domain](exact.md) — `qcircuit_exact`: integer-ring states (no ε), exact hashing, binary residue/channel encodings
 - [Encodings](encodings.md) — How unitaries are converted to neural network inputs (matrix, Hurwitz, quaternion, NeRF)
 - [Utils](utils.md) — Unitary math utilities: distances, hashing, tensor products, perturbation
 - [Data](data.md) — File formats, directory layout, goal/target conventions
@@ -22,10 +23,12 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Paths to QASM | `python scripts/paths_to_qasm.py --input <results.pkl> --output <dir>` |
 | Trasyn benchmark | `python scripts/trasyn_bench.py <goals.pkl> --epsilon 0.01` |
 | Check goal reachability | `python scripts/check_goals.py <goals.pkl> [--output <reachable.pkl>]` |
+| Float goals → exact goals | `python scripts/goals_to_exact.py --input <goals.pkl> --output <goals_exact.pkl>` (benchmark: `data/n3_goals_exact.pkl`) |
+| Exact-domain tests | `python tests/test_exact.py` |
 
 ## Domain String Syntax
 
-`qcircuit.n<N>_<flags>` — parsed by `QCircuitParser`:
+`qcircuit.n<N>_<flags>` — parsed by `QCircuitParser` (the exact domain `qcircuit_exact.n<N>_<flags>` takes `n`, `I`/`S`, `G`, an encoding `B<m>`/`C<m>`/`M` and `K<cap>`; see [exact](exact.md)):
 
 | Flag | Meaning |
 |------|---------|

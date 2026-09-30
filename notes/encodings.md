@@ -29,6 +29,10 @@ Only valid for 1-qubit (U(2)) unitaries. Phase-aligns to SU(2) then reads off `[
 
 Size: 4 reals. See `unitaries_to_quaternions` / `quaternions_to_unitaries`.
 
+## Exact (binary) encodings — `qcircuit_exact` only
+
+`B<m>` residue bits of the ring coefficients, `C<m>` channel-representation residue bits, `M` float view; see [exact](exact.md#network-input). Not available in the float domain.
+
 ## NeRF Embedding
 
 Optional positional encoding applied on top of any encoding. Controlled by `nerf_dim` (L in domain string).

@@ -19,7 +19,8 @@ data/
 │   └── 3q*/          # 3-qubit training sets
 ├── circuits/         # Target circuits as .qasm files (for verification)
 │   ├── 1qubit/, 2qubit/, 3qubit/
-└── n2_goals.pkl      # Pre-built goal set for 2-qubit problems
+├── n2_goals.pkl      # Pre-built goal set for 2-qubit problems
+└── n3_goals_exact.pkl # 3-qubit benchmark (6 reachable goals) as exact ring goals for qcircuit_exact
 
 tmp/
 └── <domain>/<heur>/  # Training checkpoints and TensorBoard logs
@@ -44,7 +45,7 @@ matrix
 (real,imag) (real,imag) ...
 ```
 
-**`.pkl` goal files** — Python pickle of `{'states': [QState, ...], 'goals': [QGoal, ...]}`.
+**`.pkl` goal files** — Python pickle of `{'states': [QState, ...], 'goals': [QGoal, ...]}`. The exact domain uses the same layout with `QStateExact`/`QGoalExact` (integer coefficients + exponent); `data/n3_goals_exact.pkl` is the 6-goal benchmark converted by `scripts/goals_to_exact.py`.
 
 **`.qasm` files** — OpenQASM 3.0 circuits (output of `paths_to_qasm.py` or existing reference circuits).
 

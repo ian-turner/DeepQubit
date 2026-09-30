@@ -44,6 +44,19 @@ Both exploit `d(U, WU) = d(I, W)` (right-multiply isometry) — distance never d
 
 Used in `QCircuit.sample_goal_from_state` when `perturb=True`.
 
+## ring.py
+
+Exact integer arithmetic over D[ω] = Z[ω, 1/√2] for the [exact domain](exact.md): coefficient arrays (…, N, N, 4) plus an exponent.
+
+| Function | Purpose |
+|----------|---------|
+| `rotate`, `conj`, `dagger`, `mul_sqrt2` | element-wise ring ops (multiply by ωᵗ, conjugate, conj-transpose, ×√2) |
+| `reduce_batch`, `canonicalize_batch`, `normalize_batch` | minimal exponent; fix global phase; both |
+| `companion`, `from_companion`, `matmul`, `matmul_dagger` | ring matrix products via the 4N×4N companion form |
+| `to_complex`, `from_complex`, `identity` | conversions (`from_complex` fits the lattice up to global phase, raises if not in the ring) |
+| `apply_h`, `apply_phase_rows`, `apply_x`, `apply_y`, `apply_z` | batched gate row operations (optional control for CH/CNOT/CZ) |
+| `pauli_tables`, `pauli_coeffs`, `pauli_generator_indices` | Pauli bookkeeping for the channel encoding |
+
 ## hurwitz.py
 
 Batched Hurwitz parameterization of SU(n) — see [encodings](encodings.md) for the role it plays.

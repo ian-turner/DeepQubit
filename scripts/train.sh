@@ -3,6 +3,7 @@
 
 CONFIG=${1:-configs/test}
 source "$CONFIG"
+DOMAIN_NAME=${DOMAIN_NAME:-qcircuit}   # domain class: qcircuit (float, epsilon) or qcircuit_exact (integer ring)
 
 # heuristic kind follows the pathfinder: *_q -> Q-function, otherwise V-function
 case "$PATHFIND" in
@@ -10,7 +11,7 @@ case "$PATHFIND" in
     *)    FN="heurv";        UP="up_rl_v" ;;
 esac
 
-deepxube train --domain qcircuit.$DOMAIN \
+deepxube train --domain $DOMAIN_NAME.$DOMAIN \
                --fn $FN,$HEUR \
                --pathfind $PATHFIND \
                --up $UP.${PROCS}p_${STEP_MAX}sm_${SEARCH_ITRS}sitrs_${UP_ITRS:-100}up_${UP_GEN_ITRS:-$UP_ITRS}upg \
