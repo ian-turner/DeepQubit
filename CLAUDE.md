@@ -19,6 +19,7 @@ Wiki pages to consider updating per area:
 | `utils/matrix_utils.py`, `utils/hurwitz.py` | `notes/encodings.md`, `notes/utils.md` |
 | `utils/perturb.py` | `notes/utils.md` |
 | `scripts/` | `notes/training.md` |
+| `domains/qcircuit_exact.py`, `utils/ring.py`, `nnets/` | `notes/exact.md` |
 | `data/` structure or formats | `notes/data.md` |
 | Domain string parsing | `notes/index.md` (quick reference table) |
 

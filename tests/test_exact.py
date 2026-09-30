@@ -12,7 +12,9 @@ import itertools
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from domains.qcircuit import *  # noqa: F401,F403  (registers the float domain first)
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import deepxube  # noqa: F401,E402  (imports the local domains/ and nnets/ packages in the right order and registers them)
+from domains.qcircuit import *  # noqa: F401,F403,E402
 from domains.qcircuit_exact import QCircuitExact, QStateExact, QGoalExact
 from deepxube.factories.domain_factory import get_domain_from_arg
 from utils import ring
@@ -227,7 +229,77 @@ def test_next_state_batched_mixed_actions():
         assert unitary_distance(s.unitary, f.unitary) < 1e-9
 
 
+def test_resnet_fc_ring_layer_matches_numpy_encodings():
+    import torch
+    from nnets.resnet_fc_ring import RingFeatures
+    dom_b = get_domain_from_arg('qcircuit_exact.n3_I_B9')[0]
+    dom_ref = get_domain_from_arg('qcircuit_exact.n3_I_B9+C2+M')[0]
+    rng = np.random.RandomState(7)
+    states = [walk_both('_I', rng.randint(21, size=L).tolist())[1] for L in [0, 1, 4, 9, 15, 22, 30, 30]]
+    goals = [QGoalExact(s.coeffs, s.k) for s in states[::-1]]
+    x = dom_b.to_np_flat_sg(states, goals)[0]
+    ref = dom_ref.to_np_flat_sg(states, goals)[0]
+    layer = RingFeatures(dom_b, chan_bits=2, float_view=True)
+    out = layer(torch.tensor(x)).numpy()
+    assert out.shape == (8, x.shape[1] + layer.extra_dim) and out.shape[1] == ref.shape[1]
+    assert np.array_equal(out[:, :x.shape[1]], x)
+    n_c = dom_ref._part_dim('C', 2)
+    assert np.array_equal(out[:, x.shape[1]:x.shape[1] + n_c], ref[:, x.shape[1]:x.shape[1] + n_c])   # channel bits + one-hots
+    assert np.allclose(out[:, x.shape[1] + n_c:], ref[:, x.shape[1] + n_c:], atol=1e-6)               # float view
+    # exponent beyond the lossless range (alternating H, T on one qubit raises k by one every two rounds): blocks zeroed
+    ed = EXACT['_I']
+    s = ed.sample_start_states(1)[0]
+    for i in range(36):
+        s = ed.next_state([s], [ed.actions[0]])[0][0]
+        s = ed.next_state([s], [ed.actions[9]])[0][0]
+    assert layer.k_lossless < s.k <= dom_b.k_cap, s.k
+    x_deep = dom_b.to_np_flat_sg([s], [QGoalExact(*ring.identity(8))])[0]
+    out_deep = layer(torch.tensor(x_deep)).numpy()
+    assert np.array_equal(out_deep[:, :x_deep.shape[1]], x_deep) and not out_deep[:, x_deep.shape[1]:].any()
+    # chan_bits=0 gives only the float view
+    layer0 = RingFeatures(dom_b, chan_bits=0, float_view=True)
+    assert layer0.extra_dim == 128 and layer0(torch.tensor(x)).shape[1] == x.shape[1] + 128
+
+
+def test_resnet_fc_ring_builds_through_factory():
+    import torch
+    from deepxube.factories.pathfind_fns_factory import get_path_fns_nnet_par_dict
+    dom, name = get_domain_from_arg('qcircuit_exact.n3_I_B9')
+    pf, npd = get_path_fns_nnet_par_dict(dom, name, ['heurv,resnet_fc_ring.50H_1B_bn_2C_fv'], torch.device('cpu'))
+    nnet = npd['heurv'].get_nnet()
+    assert nnet.ring_features.chan_bits == 2 and nnet.ring_features.float_view
+    assert nnet.heur[0].in_features == 2325 + 1782 + 128
+    rng = np.random.RandomState(8)
+    states = [walk_both('_I', rng.randint(21, size=L).tolist())[1] for L in [0, 3, 12]]
+    goals = [QGoalExact(*ring.identity(8)) for _ in states]
+    x = torch.tensor(dom.to_np_flat_sg(states, goals)[0])
+    nnet.eval()
+    out = nnet([x])
+    assert out[0].shape == (3, 1)
+    # the default parser values: no C flag -> 2 bits, no fv
+    pf2, npd2 = get_path_fns_nnet_par_dict(dom, name, ['heurv,resnet_fc_ring.50H_1B_bn'], torch.device('cpu'))
+    assert npd2['heurv'].get_nnet().heur[0].in_features == 2325 + 1782
+    try:
+        get_path_fns_nnet_par_dict(*get_domain_from_arg('qcircuit_exact.n3_I_B9+C2'), ['heurv,resnet_fc_ring.50H_1B_bn'], torch.device('cpu'))
+        assert False, "domain with a C part must be rejected"
+    except (AssertionError, ValueError) as e:
+        assert 'resnet_fc_ring' in str(e)
+
+
 def timing_info():
+    import time as _t
+    import torch
+    from nnets.resnet_fc_ring import RingFeatures
+    dom_b = get_domain_from_arg('qcircuit_exact.n3_I_B9')[0]
+    rng0 = np.random.RandomState(9)
+    st = dom_b.sample_start_states(2000)
+    for _ in range(12):
+        st = dom_b.next_state(st, [dom_b.actions[i] for i in rng0.randint(21, size=2000)])[0]
+    gl = [QGoalExact(s.coeffs, s.k) for s in st[::-1]]
+    t = _t.time(); xb = dom_b.to_np_flat_sg(st, gl)[0]; t_b = _t.time() - t
+    layer = RingFeatures(dom_b, 2, False); xt = torch.tensor(xb); layer(xt)
+    t = _t.time(); layer(xt); t_l = _t.time() - t
+    print(f"  timing (2000 states): domain B9 encode {t_b * 1e3:.0f} ms, torch RingFeatures (CPU) {t_l * 1e3:.0f} ms")
     ed = get_domain_from_arg('qcircuit_exact.n3_I_B9+C2')[0]
     rng = np.random.RandomState(6)
     states = ed.sample_start_states(2000)

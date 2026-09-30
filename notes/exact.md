@@ -51,4 +51,16 @@ The input is built from the canonical relative unitary R = G·S†. Encoding par
 The channel rows are phase-invariant by construction. Why this matters: in the float encoding CNOT, SWAP and
 Toffoli are all 0/1 matrices, and a value net trained on random walks scored all of them like 1–3 gate circuits;
 in `C` they separate on support size and exponent (Toffoli spreads X₀, X₁, Z₂ over four Paulis at exponent 2).
-`M` is kept for ablations only; the intended input is `B9+C2` (4107 inputs).
+`M` is kept for ablations only.
+
+## resnet_fc_ring — the ring algebra on the device
+
+`nnets/resnet_fc_ring.py` (auto-imported by deepxube from the local `nnets/` package). The intended setup is
+domain encoding `B9` (cheap: bit packing only, ~10 ms per 2000 states) with network
+`resnet_fc_ring.<H>H_<B>B_bn[_<m>C][_fv]`. Its parameter-free front layer `RingFeatures` reconstructs the integer
+coefficients from the bits (exact while k ≤ 2m−2), builds the companion form, and computes the `C<m>` channel
+features (and with `fv` the `M` float view) as batched float64 matmuls and gathers on the network's device, then
+feeds `[B bits | channel bits + exponent one-hots | (floats)]` to the usual resnet. Rows whose k exceeds the
+lossless range get a zeroed channel/float block. Flags: `<m>C` channel bits (default 2, `0C` disables), `fv`
+float view. The layer is tested bit-for-bit against the numpy `C`/`M` encodings (`tests/test_exact.py`).
+The domain must not include a `C` part when this network is used (the network refuses).

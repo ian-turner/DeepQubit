@@ -5,7 +5,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 ## Topics
 
 - [Domain](domain.md) — QCircuit state/action/goal types, gate sets, the deepxube interface
-- [Exact Domain](exact.md) — `qcircuit_exact`: integer-ring states (no ε), exact hashing, binary residue/channel encodings
+- [Exact Domain](exact.md) — `qcircuit_exact`: integer-ring states (no ε), exact hashing, binary residue/channel encodings, `resnet_fc_ring` network
 - [Encodings](encodings.md) — How unitaries are converted to neural network inputs (matrix, Hurwitz, quaternion, NeRF)
 - [Utils](utils.md) — Unitary math utilities: distances, hashing, tensor products, perturbation
 - [Data](data.md) — File formats, directory layout, goal/target conventions

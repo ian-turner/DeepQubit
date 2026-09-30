@@ -13,13 +13,13 @@ source setup.sh   # adds repo root to PYTHONPATH; run in every new shell
 | Variable | Example | Meaning |
 |----------|---------|---------|
 | `DOMAIN` | `n3_e0.000001` | Domain string (parsed by `QCircuitParser`) |
-| `HEUR` | `resnet_fc.1000H_4B_bn` | Network architecture (`--fn <kind>,$HEUR`) |
+| `HEUR` | `resnet_fc.1000H_4B_bn` | Network architecture (`--fn <kind>,$HEUR`); `resnet_fc_ring.…` for the exact domain (see [exact](exact.md#resnet_fc_ring--the-ring-algebra-on-the-device)) |
 | `PATHFIND` | `graph_v.1B_1W_0.0E` | Search used during training; `*_q` selects a Q-function (`heurq_fixout`/`up_rl_q`), otherwise V (`heurv`/`up_rl_v`) |
 | `BATCH_SIZE`, `MAX_ITRS`, `CHECKPOINT` | 10000, 200000, 100 | Trainer args (`--tr tr_h.<bs>bs_<maxit>maxit_<chkpt>chkpt`) |
 | `PROCS`, `STEP_MAX`, `SEARCH_ITRS`, `UP_ITRS`, `UP_GEN_ITRS` | 24, 30, 1000, 100, 100 | Updater args (`--up up_rl_v.<p>p_<sm>sm_<sitrs>sitrs_<up>up_<upg>upg`) |
 | `TEST_FILE`, `TEST_SEARCH_ITRS` | `tmp/n3_goals.pkl`, 100 | Test-set args (accepted but unused by deepxube 0.3.2) |
 
-`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_G` is the same with structured macro-word goals (`n3_e0.000001_I_G`, see [domain](domain.md#structured-macro-goals--flag-g)); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, `n3_I_B9+C2`, random-walk goals only for now, goals `data/n3_goals_exact.pkl`, see [exact](exact.md)).
+`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_G` is the same with structured macro-word goals (`n3_e0.000001_I_G`, see [domain](domain.md#structured-macro-goals--flag-g)); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, domain `n3_I_B9`, network `resnet_fc_ring.1000H_4B_bn_2C` which computes the channel features on the GPU, random-walk goals only for now, goals `data/n3_goals_exact.pkl`, see [exact](exact.md)).
 
 `DOMAIN_NAME` (default `qcircuit`) selects the domain class passed as `--domain $DOMAIN_NAME.$DOMAIN` in both scripts.
 
