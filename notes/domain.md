@@ -20,6 +20,8 @@ QAction (ABC)
     ├── CNOTGate, CZGate, CHGate
 ```
 
+Action equality is `unitary_distance ≤ ε` plus matching qubits; the hash (`(qubit(s), hash_unitary(full_unitary))`) is cached in `_hash` on first use. deepxube's node expansion hashes the action ~3 times per generated child (`edge_dict` get/check/insert), and the uncached hash had been ~25% of search worker time (exact domain, n=3: 26 → 0.7 µs per child).
+
 ## Gates
 
 Each gate class has a `name` attribute that is its OpenQASM identifier (`stdgates.inc`). `__repr__` emits `<name> qs[i]` / `<name> qs[c], qs[t]`, which `scripts/paths_to_qasm.py` writes verbatim, so names must match the QASM standard library exactly.

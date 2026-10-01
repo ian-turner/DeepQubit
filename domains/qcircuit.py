@@ -20,12 +20,25 @@ from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_givens_batch
 
 
-def _cached_hash(obj: Any) -> int:
-    """The hash of a QState/QGoal, computed on first use unless the domain passed a batch-computed one
-    (getattr: objects unpickled from before the cache existed have no `_hash`)"""
-    if getattr(obj, '_hash', None) is None:
-        obj._hash = hash_unitary(obj.unitary)
-    return obj._hash
+def _cached_hash(obj: Any, key: Any) -> int:
+    """obj's hash, computed by key(obj) on first use and stored in `_hash` (states and goals created in bulk get a
+    batch-computed one; getattr: objects unpickled from before the cache existed have no `_hash`)"""
+    h = getattr(obj, '_hash', None)
+    if h is None:
+        h = obj._hash = key(obj)
+    return h
+
+
+def _unitary_key(obj: Any) -> int:
+    return hash_unitary(obj.unitary)
+
+
+def _one_qubit_key(gate: Any) -> int:
+    return hash((gate.qubit, hash_unitary(gate._full_unitary)))
+
+
+def _controlled_key(gate: Any) -> int:
+    return hash((gate.control, gate.target, hash_unitary(gate._full_unitary)))
 
 
 class QState(State):
@@ -37,7 +50,7 @@ class QState(State):
         self._hash = hash_val
 
     def __hash__(self):
-        return _cached_hash(self)
+        return _cached_hash(self, _unitary_key)
 
     def __eq__(self, other: Self):
         return unitary_distance(self.unitary, other.unitary) <= self.epsilon
@@ -52,7 +65,7 @@ class QGoal(Goal):
         self._hash = hash_val
 
     def __hash__(self):
-        return _cached_hash(self)
+        return _cached_hash(self, _unitary_key)
 
     def __eq__(self, other: Self):
         return unitary_distance(self.unitary, other.unitary) <= self.epsilon
@@ -86,7 +99,8 @@ class OneQubitGate(QAction, ABC):
                and (self.qubit == other.qubit)
 
     def __hash__(self):
-        return hash((self.qubit, hash_unitary(self._full_unitary)))
+        # cached: deepxube's search hashes the action several times for every generated child node
+        return _cached_hash(self, _one_qubit_key)
     
 
 class ControlledGate(QAction, ABC):
@@ -116,7 +130,7 @@ class ControlledGate(QAction, ABC):
                and (self.control == other.control) and (self.target == other.target)
 
     def __hash__(self):
-        return hash((self.control, self.target, hash_unitary(self._full_unitary)))
+        return _cached_hash(self, _controlled_key)
 
 
 class HGate(OneQubitGate):
