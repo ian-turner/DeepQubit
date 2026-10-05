@@ -286,6 +286,137 @@ def test_resnet_fc_ring_builds_through_factory():
         assert 'resnet_fc_ring' in str(e)
 
 
+def test_next_state_output_is_canonical():
+    """next_state skips reduction/canonicalization for gates that cannot change them; check against a full normalize"""
+    rng = np.random.RandomState(10)
+    for gs in ('', '_I'):
+        ed = EXACT[gs]
+        states = ed.sample_start_states(40)
+        for _ in range(15):
+            states = ed.next_state(states, [ed.actions[i] for i in rng.randint(len(ed.actions), size=40)])[0]
+        for a in ed.actions:
+            raw_c, raw_k = ed._apply_group(np.stack([s.coeffs for s in states]).astype(np.int64),
+                                           np.array([s.k for s in states]), a)
+            ref_c, ref_k = ring.normalize_batch(raw_c, raw_k)
+            nxt = ed.next_state(states, [a] * len(states))[0]
+            assert all(s.k == kk and np.array_equal(s.coeffs, cc) for s, cc, kk in zip(nxt, ref_c, ref_k)), (gs, a)
+
+
+def test_incremental_relative_matches_scratch():
+    """G S^dagger derived from the parent's cached relative by column ops equals the full product, along a simulated
+    search (roots evaluated, popped nodes expanded, children evaluated), for both gate sets, and after goal relabeling"""
+    rng = np.random.RandomState(11)
+    for gs in ('', '_I'):
+        ed = EXACT[gs]
+        np.random.seed(11)
+        roots, goals = ed.sample_problem_instances([0, 3, 8, 20, 40, 60])
+        frontier = list(zip(roots, goals))
+        ed.to_np_flat_sg(roots, goals)  # caches the roots' relatives
+        scratch_calls = []
+        scratch = ed._relative_scratch
+        for _ in range(4):
+            parents = [frontier[i] for i in rng.choice(len(frontier), size=6, replace=False)]
+            st = [p for p, _ in parents for _ in ed.actions]
+            gl = [g for _, g in parents for _ in ed.actions]
+            children = ed.next_state(st, [a for _ in parents for a in ed.actions])[0]
+            ed._relative_scratch = lambda *a: scratch_calls.append(len(a[0])) or scratch(*a)
+            c, k = ed._relative(children, gl)
+            ed._relative_scratch = scratch
+            assert not scratch_calls, scratch_calls  # every relative came from a parent's by column ops
+            c_ref, k_ref = ed._relative_scratch(children, gl)
+            assert np.array_equal(c, c_ref) and np.array_equal(k, k_ref), gs
+            frontier = list(zip(children, gl))
+        # popped states re-encoded (cache hits) and relabeled to other goals (scratch) still agree
+        sts = [s for s, _ in frontier[:30]]
+        for gl in ([g for _, g in frontier[:30]], [goals[1]] * 30):
+            c, k = ed._relative(sts, gl)
+            c_ref, k_ref = ed._relative_scratch(sts, gl)
+            assert np.array_equal(c, c_ref) and np.array_equal(k, k_ref), gs
+
+
+def test_compact_storage_hash_and_pickle():
+    ed = EXACT['_I']
+    rng = np.random.RandomState(12)
+    s = walk_both('_I', rng.randint(21, size=25).tolist())[1]
+    assert s.coeffs.dtype == np.int16
+    s64 = QStateExact(s.coeffs.astype(np.int64), s.k)  # e.g. built by from_complex
+    assert s64.coeffs.dtype == np.int16 and s64 == s and hash(s64) == hash(s)
+    child = ed.next_state([s], [ed.actions[0]])[0][0]
+    assert child._parent is s
+    back = pickle.loads(pickle.dumps(child))
+    assert back == child and hash(back) == hash(child) and back._parent is None and back._rel is None
+    # goal files written before compact storage (int64 coefficients, no caches) still load and compare
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data = pickle.load(open(os.path.join(root, 'data/n3_goals_exact.pkl'), 'rb'))
+    g = data['goals'][0]
+    assert g.coeffs.dtype == np.int16 and g == QGoalExact.from_complex(g.unitary)
+    # coefficients beyond int16 stay int64 (and equal states hash alike)
+    big = np.zeros((8, 8, 4), dtype=np.int64)
+    big[0, 0, 0] = 1 << 20
+    assert QStateExact(big, 40).coeffs.dtype == np.int64
+
+
+def test_z_encoding_matches_b_encoding_through_ring_layer():
+    import torch
+    from nnets.resnet_fc_ring import RingFeatures
+    dom_z = get_domain_from_arg('qcircuit_exact.n3_I_Z9')[0]
+    dom_b = get_domain_from_arg('qcircuit_exact.n3_I_B9')[0]
+    dom_ref = get_domain_from_arg('qcircuit_exact.n3_I_B9+C2+M')[0]
+    rng = np.random.RandomState(13)
+    states = [walk_both('_I', rng.randint(21, size=L).tolist())[1] for L in [0, 1, 4, 9, 15, 22, 30, 30, 50, 80]]
+    goals = [QGoalExact(s.coeffs, s.k) for s in states[::-1]]
+    xz = dom_z.to_np_flat_sg(states, goals)[0]
+    assert xz.dtype == np.int16 and xz.shape == (10, dom_z.get_input_info_flat_sg()[0][0]) == (10, 257)
+    ref = dom_ref.to_np_flat_sg(states, goals)[0]
+    out_z = RingFeatures(dom_z, chan_bits=2, float_view=True)(torch.tensor(xz)).numpy()
+    out_b = RingFeatures(dom_b, chan_bits=2, float_view=True)(torch.tensor(dom_b.to_np_flat_sg(states, goals)[0])).numpy()
+    assert out_z.shape == out_b.shape == ref.shape
+    n_exact = ref.shape[1] - 128
+    assert np.array_equal(out_z[:, :n_exact], ref[:, :n_exact]) and np.array_equal(out_z[:, :n_exact], out_b[:, :n_exact])
+    assert np.allclose(out_z[:, n_exact:], ref[:, n_exact:], atol=1e-6)
+    # beyond the B9 range Z still has the exact integers (k <= 29): channel rows equal the numpy reference
+    ed = EXACT['_I']
+    s = ed.sample_start_states(1)[0]
+    for i in range(36):
+        s = ed.next_state([s], [ed.actions[0]])[0][0]
+        s = ed.next_state([s], [ed.actions[9]])[0][0]
+    g = [QGoalExact(*ring.identity(8))]
+    assert 16 < s.k <= 29
+    out_deep = RingFeatures(dom_z, chan_bits=2)(torch.tensor(dom_z.to_np_flat_sg([s], g)[0])).numpy()
+    ref_deep = get_domain_from_arg('qcircuit_exact.n3_I_B9+C2')[0].to_np_flat_sg([s], g)[0]
+    assert np.array_equal(out_deep[:, 2304:], ref_deep[:, 2304:])  # k one-hot, channel bits and exponents
+    try:
+        get_domain_from_arg('qcircuit_exact.n3_I_Z9+C2')
+        assert False, "Z must be the only part"
+    except ValueError:
+        pass
+
+
+def test_resnet_fc_ring_checkpoint_works_with_z_input():
+    import torch
+    from deepxube.factories.pathfind_fns_factory import get_path_fns_nnet_par_dict
+    dom_b, name = get_domain_from_arg('qcircuit_exact.n3_I_B9')
+    dom_z, _ = get_domain_from_arg('qcircuit_exact.n3_I_Z9')
+    net_b = get_path_fns_nnet_par_dict(dom_b, name, ['heurv,resnet_fc_ring.50H_1B_bn_2C'], torch.device('cpu'))[1]['heurv'].get_nnet()
+    net_z = get_path_fns_nnet_par_dict(dom_z, name, ['heurv,resnet_fc_ring.50H_1B_bn_2C'], torch.device('cpu'))[1]['heurv'].get_nnet()
+    assert net_z.heur[0].in_features == net_b.heur[0].in_features == 2325 + 1782
+    net_z.load_state_dict(net_b.state_dict())
+    net_b.eval()
+    net_z.eval()
+    rng = np.random.RandomState(14)
+    states = [walk_both('_I', rng.randint(21, size=L).tolist())[1] for L in [0, 3, 12, 40]]
+    goals = [QGoalExact(*ring.identity(8)) for _ in states]
+    out_b = net_b([torch.tensor(dom_b.to_np_flat_sg(states, goals)[0])])[0]
+    out_z = net_z([torch.tensor(dom_z.to_np_flat_sg(states, goals)[0])])[0]
+    assert torch.allclose(out_b, out_z, atol=1e-5)
+    # the layer's tables are not saved; checkpoints from before (which saved them) still load strictly
+    sd = net_b.state_dict()
+    assert not any('ring_features' in key for key in sd)
+    for name in ('pow2', 'rot4f', 'gens', 'chan_idx', 'chan_sign', 'cbit_shifts'):
+        sd['ring_features.' + name] = torch.zeros(1)
+    net_z.load_state_dict(sd)
+
+
 def timing_info():
     import time as _t
     import torch
@@ -300,6 +431,11 @@ def timing_info():
     layer = RingFeatures(dom_b, 2, False); xt = torch.tensor(xb); layer(xt)
     t = _t.time(); layer(xt); t_l = _t.time() - t
     print(f"  timing (2000 states): domain B9 encode {t_b * 1e3:.0f} ms, torch RingFeatures (CPU) {t_l * 1e3:.0f} ms")
+    dom_z = get_domain_from_arg('qcircuit_exact.n3_I_Z9')[0]
+    gl = [QGoalExact(g.coeffs, g.k) for g in gl]  # new goal objects: no cached relatives
+    t = _t.time(); xz = dom_z.to_np_flat_sg(st, gl)[0]; t_z = _t.time() - t
+    print(f"  timing (2000 states): domain Z9 encode from scratch {t_z * 1e3:.0f} ms ({xz.nbytes / 2000:.0f} bytes/state vs "
+          f"{xb.nbytes / 2000:.0f} for B9 floats)")
     ed = get_domain_from_arg('qcircuit_exact.n3_I_B9+C2')[0]
     rng = np.random.RandomState(6)
     states = ed.sample_start_states(2000)

@@ -19,7 +19,7 @@ source setup.sh   # adds repo root to PYTHONPATH; run in every new shell
 | `PROCS`, `STEP_MAX`, `SEARCH_ITRS`, `UP_ITRS`, `UP_GEN_ITRS` | 24, 30, 1000, 100, 100 | Updater args (`--up up_rl_v.<p>p_<sm>sm_<sitrs>sitrs_<up>up_<upg>upg`) |
 | `TEST_FILE`, `TEST_SEARCH_ITRS` | `tmp/n3_goals.pkl`, 100 | Test-set args (accepted but unused by deepxube 0.3.2) |
 
-`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_G` is the same with structured macro-word goals (`n3_e0.000001_I_G`, see [domain](domain.md#structured-macro-goals--flag-g)); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, domain `n3_I_B9`, network `resnet_fc_ring.1000H_4B_bn_2C` which computes the channel features on the GPU, random-walk goals only for now, goals `data/n3_goals_exact.pkl`, see [exact](exact.md)).
+`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_G` is the same with structured macro-word goals (`n3_e0.000001_I_G`, see [domain](domain.md#structured-macro-goals--flag-g)); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, domain `n3_I_Z9` (compact int16 input; same features as `n3_I_B9` with 18× less data per state), network `resnet_fc_ring.1000H_4B_bn_2C` which expands the bits and computes the channel features on the GPU, random-walk goals only for now, goals `data/n3_goals_exact.pkl`, see [exact](exact.md)). Runs from before 2026-10-05 used `n3_I_B9` and live in `tmp/n3_I_B9/...`; their checkpoints load unchanged into the Z9 run directory.
 
 `DOMAIN_NAME` (default `qcircuit`) selects the domain class passed as `--domain $DOMAIN_NAME.$DOMAIN` in both scripts.
 

@@ -50,8 +50,8 @@ Exact integer arithmetic over D[ω] = Z[ω, 1/√2] for the [exact domain](exact
 
 | Function | Purpose |
 |----------|---------|
-| `rotate`, `conj`, `dagger`, `mul_sqrt2` | element-wise ring ops (multiply by ωᵗ, conjugate, conj-transpose, ×√2) |
-| `reduce_batch`, `canonicalize_batch`, `normalize_batch` | minimal exponent; fix global phase; both |
+| `rotate`, `conj`, `dagger`, `mul_sqrt2` | element-wise ring ops (multiply by ωᵗ, conjugate, conj-transpose, ×√2); ωᵗ and conj are signed permutations of the 4 coefficients (`ROT_IDX/ROT_SGN`, `CONJ_IDX/CONJ_SGN` gathers, faster than int matmuls) |
+| `divisible_by_sqrt2`, `reduce_batch`, `canonicalize_batch`, `normalize_batch` | √2 test (a ≡ c, b ≡ d mod 2); minimal exponent (each round only revisits items still divisible); fix global phase; both |
 | `companion`, `from_companion`, `matmul`, `matmul_dagger` | ring matrix products via the 4N×4N companion form |
 | `to_complex`, `from_complex`, `identity` | conversions (`from_complex` fits the lattice up to global phase, raises if not in the ring) |
 | `apply_h`, `apply_phase_rows`, `apply_x`, `apply_y`, `apply_z` | batched gate row operations (optional control for CH/CNOT/CZ) |

@@ -12,6 +12,9 @@ done in float64 for BLAS speed, which is exact while all intermediate values sta
 
 Row operations for the gates are pure int64 ops. Qubit 0 is the most significant bit of the basis
 index (same big-endian convention as domains/qcircuit.py).
+
+Coefficient size: the Galois automorphisms omega -> omega^j (j odd) commute with conjugation, so they map a
+unitary to a unitary, and every coefficient is an average of embedded entries; hence |coefficient| <= sqrt2^k.
 """
 from typing import Tuple, List
 
@@ -33,6 +36,11 @@ CONJ: NDArray = np.array([[1, 0, 0, 0],
                           [0, 0, 0, -1],
                           [0, 0, -1, 0],
                           [0, -1, 0, 0]], dtype=np.int64)
+# ROT[t] and CONJ are signed permutations: c @ M == c[..., IDX] * SGN, which numpy does faster than an int matmul
+ROT_IDX: NDArray = np.abs(ROT).argmax(axis=1)                       # (8, 4)
+ROT_SGN: NDArray = np.take_along_axis(ROT, ROT_IDX[:, None, :], axis=1)[:, 0, :]
+CONJ_IDX: NDArray = np.abs(CONJ).argmax(axis=0)
+CONJ_SGN: NDArray = CONJ[CONJ_IDX, np.arange(4)]
 # companion columns as one (4, 16) float matrix: [i, 4*j + t] = ROT[t][i, j]  (see `companion`)
 _ROT4F: NDArray = np.stack([ROT[t] for t in range(4)], axis=-1).reshape(4, 16).astype(np.float64)
 # multiplication by sqrt2 = omega - omega^3: (a, b, c, d) -> (b - d, a + c, b + d, c - a)
@@ -47,7 +55,8 @@ MUL_SQRT2: NDArray = np.array([[0, 1, 0, -1],
 # ---------------------------------------------------------------------------
 def rotate(c: NDArray, t: int) -> NDArray:
     """Multiply every entry by omega^t"""
-    return c @ ROT[t % 8]
+    t = t % 8
+    return c[..., ROT_IDX[t]] * ROT_SGN[t]
 
 
 def rotate_per_item(c: NDArray, ts: NDArray) -> NDArray:
@@ -56,13 +65,13 @@ def rotate_per_item(c: NDArray, ts: NDArray) -> NDArray:
     out = c.copy()
     for t in np.unique(ts):
         if t != 0:
-            idx = ts == t
-            out[idx] = c[idx] @ ROT[t]
+            idx = np.flatnonzero(ts == t)
+            out[idx] = c[idx][..., ROT_IDX[t]] * ROT_SGN[t]
     return out
 
 
 def conj(c: NDArray) -> NDArray:
-    return c @ CONJ
+    return c[..., CONJ_IDX] * CONJ_SGN
 
 
 def dagger(c: NDArray) -> NDArray:
@@ -71,26 +80,39 @@ def dagger(c: NDArray) -> NDArray:
 
 
 def mul_sqrt2(c: NDArray) -> NDArray:
-    return c @ MUL_SQRT2
+    """(a, b, c, d) -> (b - d, a + c, b + d, c - a), i.e. c @ MUL_SQRT2"""
+    a, b, cc, d = c[..., 0], c[..., 1], c[..., 2], c[..., 3]
+    out = np.empty_like(c)
+    np.subtract(b, d, out=out[..., 0])
+    np.add(a, cc, out=out[..., 1])
+    np.add(b, d, out=out[..., 2])
+    np.subtract(cc, a, out=out[..., 3])
+    return out
 
 
 def divisible_by_sqrt2(c: NDArray) -> NDArray:
-    """Per batch item: are all entries of (B, ..., 4) divisible by sqrt2 in Z[omega]?"""
-    m = mul_sqrt2(c)  # c / sqrt2 = (c * sqrt2) / 2
-    return (np.mod(m, 2) == 0).reshape(c.shape[0], -1).all(axis=1)
+    """Per batch item: are all entries of (B, ..., 4) divisible by sqrt2 in Z[omega]? z * sqrt2 = (b - d, a + c, b + d,
+    c - a) is divisible by 2 iff a = c and b = d (mod 2)"""
+    odd = ((c[..., 0] ^ c[..., 2]) | (c[..., 1] ^ c[..., 3])) & 1
+    return ~odd.reshape(c.shape[0], -1).any(axis=1)
 
 
 def reduce_batch(c: NDArray, k: NDArray) -> Tuple[NDArray, NDArray]:
-    """Divide out sqrt2 while every entry allows it (and k > 0), giving the minimal exponent. (B, N, N, 4), (B,)"""
+    """Divide out sqrt2 while every entry allows it (and k > 0), giving the minimal exponent. (B, N, N, 4), (B,)
+    Each round only looks at the items that were still divisible in the previous one."""
     c = c.copy()
     k = k.copy()
-    while True:
-        m = mul_sqrt2(c)
-        div = (k > 0) & (np.mod(m, 2) == 0).reshape(c.shape[0], -1).all(axis=1)
-        if not div.any():
-            return c, k
-        c[div] = m[div] // 2
-        k[div] -= 1
+    act = np.flatnonzero(k > 0)
+    while act.size > 0:
+        sub = c[act]
+        div = divisible_by_sqrt2(sub)
+        act = act[div]
+        if act.size == 0:
+            break
+        c[act] = mul_sqrt2(sub[div]) >> 1  # exact: every entry is even
+        k[act] -= 1
+        act = act[k[act] > 0]
+    return c, k
 
 
 def canonicalize_batch(c: NDArray, k: NDArray) -> Tuple[NDArray, NDArray]:
@@ -101,7 +123,7 @@ def canonicalize_batch(c: NDArray, k: NDArray) -> Tuple[NDArray, NDArray]:
     flat = c.reshape(B, -1, 4)
     first = (flat != 0).any(axis=-1).argmax(axis=1)  # index of first nonzero entry
     z = flat[np.arange(B), first]  # (B, 4)
-    rots = np.einsum('bi,tij->btj', z, ROT)  # (B, 8, 4)
+    rots = z[:, ROT_IDX] * ROT_SGN  # (B, 8, 4): z * omega^t
     mask = np.ones((B, 8), dtype=bool)
     for j in range(4):
         vals = np.where(mask, rots[:, :, j], np.iinfo(np.int64).min)
@@ -148,6 +170,7 @@ def matmul_dagger(a: NDArray, b: NDArray) -> NDArray:
 # ---------------------------------------------------------------------------
 def to_complex(c: NDArray, k: NDArray) -> NDArray:
     """(..., N, N, 4), (...) -> complex128 (..., N, N)"""
+    c = np.asarray(c, dtype=np.float64)  # stored coefficients may be int16
     a, b, cc, d = c[..., 0], c[..., 1], c[..., 2], c[..., 3]
     re = a + (b - d) / SQRT2
     im = cc + (b + d) / SQRT2
