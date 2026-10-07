@@ -1,0 +1,8 @@
+goal   solved  gates     T  time (s)    nodes gen
+ch        yes      7     2      1.68          852
+crk_2     yes      5     3      0.03          612
+crz_2     yes      4     2      0.03          492
+cs        yes      5     3      0.03          612
+cz        yes      3     0      0.02          372
+
+solved 5/5, mean time (solved) 0.36s
