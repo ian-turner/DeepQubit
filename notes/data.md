@@ -10,6 +10,7 @@ data/
 │   ├── 3qubit/       # cch, ccrz_2, cct, ccz, csqrtiswap, csqrtswap, fredkin, toffoli
 │   └── 4qubit/       # rcccx
 ├── results/<n>qubit/ # solve summaries copied from the cluster
+├── baselines/        # trasyn_n<N>_<goals>_e<ε>_<budget>T.csv per-goal baseline results (scripts/trasyn_bench.py)
 └── training/         # <DOMAIN>_<HEUR>.csv per-update % solved (scripts/train_report.py)
 
 paper/

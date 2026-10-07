@@ -81,11 +81,11 @@ Prints each goal's determinant as a power of ω and whether it is exactly reacha
 
 ## Trasyn Benchmark (`scripts/trasyn_bench.py`)
 
-Runs the [Trasyn](https://github.com/eth-sri/synthetiq) baseline synthesizer on a goals `.pkl`:
+Runs the [trasyn](https://github.com/haoty/trasyn) baseline synthesizer on a goals `.pkl` (default `data/targets/1qubit/random_1000.pkl`):
 ```bash
-python scripts/trasyn_bench.py <goals.pkl> --epsilon 0.01 --t_budget 30
+python scripts/trasyn_bench.py [goals.pkl] [--epsilon 0.01] [--t_budget 30] [--output <csv>]
 ```
-Reports time, T-count, gate count, and error per goal.
+Writes `data/baselines/trasyn_n<N>_<goals stem>_e<epsilon>_<t_budget>T.csv` with columns `goal, time, t_count, gate_count, error, solved` (`goal` is the pkl's name for it, else its index; `error` is `unitary_distance`, so `solved` = `error ≤ ε` matches `is_solved`), one row per goal written as it goes, then prints the % solved and mean time/T-count/gate count. One qubit uses `trasyn.synthesize`; more qubits go through `synthesize_qiskit_circuit` (transpiles to rotations + CNOTs, so even exact Clifford+T targets like `cs` come out as long approximate circuits). Without cupy, trasyn falls back to numpy on the CPU (~3 s per 1-qubit goal at ε = 0.01).
 
 ## Converting Results to QASM (`scripts/paths_to_qasm.py`)
 
