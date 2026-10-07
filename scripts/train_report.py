@@ -5,9 +5,9 @@ A run is any directory holding a heur_train_summary.pkl (deepxube adds one entry
 finished searches that were solved.
 
 For a run at tmp/<DOMAIN>/<HEUR>/ this writes data/training/<DOMAIN>_<HEUR>.csv (update, itr, per_solved) and
-paper/images/<DOMAIN>_<HEUR>.<fmt>.
+paper/images/<DOMAIN>_<HEUR>.png.
 
-Usage: python scripts/train_report.py [--dir tmp] [--smooth <updates>] [--fmt pdf|png|svg]
+Usage: python scripts/train_report.py [--dir tmp] [--smooth <updates>]
 """
 import csv
 import os
@@ -50,7 +50,7 @@ def trailing_mean(x, window):
 
 
 def plot(per_solved, fig_file, smooth):
-    plt.rcParams.update({'font.size': 9, 'pdf.fonttype': 42, 'ps.fonttype': 42})
+    plt.rcParams.update({'font.size': 9})
     fig, ax = plt.subplots(figsize=(5, 3))
     updates = np.arange(len(per_solved))
     marker = 'o' if len(per_solved) == 1 else None  # a lone point draws no line
@@ -73,7 +73,7 @@ def plot(per_solved, fig_file, smooth):
         ax.spines[side].set_color(AXIS)
     ax.tick_params(colors=TEXT_SECONDARY)
     fig.tight_layout()
-    fig.savefig(fig_file)
+    fig.savefig(fig_file, dpi=300)
     plt.close(fig)
 
 
@@ -81,7 +81,6 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--dir', type=str, default=os.path.join(REPO, 'tmp'), help='directory searched for training runs')
     parser.add_argument('--smooth', type=int, default=1, help='also draw a trailing mean over this many updates')
-    parser.add_argument('--fmt', type=str, default='pdf', help='image format (pdf, png, svg)')
     args = parser.parse_args()
 
     os.makedirs(CSV_DIR, exist_ok=True)
@@ -104,7 +103,7 @@ if __name__ == '__main__':
             for update, (itr, per_solved) in enumerate(rows):
                 writer.writerow([update, itr, f"{per_solved:.4f}"])
 
-        fig_file = os.path.join(FIG_DIR, f"{name}.{args.fmt}")
+        fig_file = os.path.join(FIG_DIR, f"{name}.png")
         plot(np.array([p for _, p in rows]), fig_file, args.smooth)
         print(f"{name}: {len(rows)} updates, last %solved {rows[-1][1]:.2f} -> "
               f"{os.path.relpath(csv_file, REPO)}, {os.path.relpath(fig_file, REPO)}")

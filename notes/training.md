@@ -36,9 +36,9 @@ Output goes to `tmp/<DOMAIN>/<HEUR>/`:
 ## Training Progress Graphs (`scripts/train_report.py`)
 
 ```bash
-python scripts/train_report.py [--dir tmp] [--smooth <updates>] [--fmt pdf|png|svg]
+python scripts/train_report.py [--dir tmp] [--smooth <updates>]
 ```
-Finds every run under `tmp/` (any directory with a `heur_train_summary.pkl`) and graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (mean over random-walk lengths of the % of that update's training searches solved; not a test set). For `tmp/<DOMAIN>/<HEUR>/` it writes `data/training/<DOMAIN>_<HEUR>.csv` (`update, itr, per_solved`) and `paper/images/<DOMAIN>_<HEUR>.pdf`. `--smooth N` adds a trailing mean over N updates (raw curve drawn faint). Unpickling needs deepxube installed.
+Finds every run under `tmp/` (any directory with a `heur_train_summary.pkl`) and graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (mean over random-walk lengths of the % of that update's training searches solved; not a test set). For `tmp/<DOMAIN>/<HEUR>/` it writes `data/training/<DOMAIN>_<HEUR>.csv` (`update, itr, per_solved`) and `paper/images/<DOMAIN>_<HEUR>.png` (300 dpi). `--smooth N` adds a trailing mean over N updates (raw curve drawn faint). Unpickling needs deepxube installed.
 
 ## Solving (`scripts/solve.sh`)
 
