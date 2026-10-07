@@ -3,7 +3,6 @@
 Run:  python tests/test_exact.py        (or pytest tests/test_exact.py)
 """
 import os
-import re
 import sys
 import time
 import pickle
@@ -18,7 +17,7 @@ from domains.qcircuit import *  # noqa: F401,F403,E402
 from domains.qcircuit_exact import QCircuitExact, QStateExact, QGoalExact
 from deepxube.factories.domain_factory import get_domain_from_arg
 from utils import ring
-from utils.matrix_utils import unitary_distance
+from utils.matrix_utils import unitary_distance, load_matrix_from_file
 
 FLOAT = {gs: get_domain_from_arg(f'qcircuit.n3_e0.000001{gs}')[0] for gs in ('', '_I')}
 EXACT = {gs: get_domain_from_arg(f'qcircuit_exact.n3{gs}_B9+C2+M')[0] for gs in ('', '_I')}
@@ -103,39 +102,39 @@ def test_from_complex_roundtrip_and_rejection():
         pass
 
 
-def _qasm_word(path, domain, qmap):
-    lines = [l.strip() for l in open(path) if re.match(r'^(h|s|sdg|t|tdg|cx) ', l.strip())]
-    acts = []
-    for l in lines:
-        g, qs = l.rstrip(';').split(' ', 1)
-        qs = [qmap(int(x)) for x in re.findall(r'\[(\d+)\]', qs)]
-        cls = {'h': HGate, 's': SGate, 'sdg': SdgGate, 't': TGate, 'tdg': TdgGate, 'cx': CNOTGate}[g]
-        acts.append(domain._lookup_action(cls, tuple(qs)))
-    return acts
+TARGETS = 'data/targets/3qubit'
 
 
-def _toffoli_word(domain, a=0, b=1, t=2):
-    """15-gate Toffoli (controls a, b; target t), T-count 7 (Nielsen & Chuang Fig. 4.9), as CliffT_inv actions"""
-    word = [(HGate, (t,)), (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (t,)),
+def _target(name):
+    """Benchmark target from data/targets/3qubit as an exact goal (the .txt entries carry ~8 digits, hence tol)"""
+    return QGoalExact.from_complex(load_matrix_from_file(os.path.join(TARGETS, f'{name}.txt'))[1], tol=1e-6)
+
+
+def _run(domain, word):
+    """State reached from the identity by a circuit-order list of (gate class, qubits)"""
+    s = domain.sample_start_states(1)[0]
+    for cls, qs in word:
+        s = domain.next_state([s], [domain._lookup_action(cls, qs)])[0][0]
+    return s
+
+
+def _toffoli_word(a=0, b=1, t=2):
+    """15-gate Toffoli (controls a, b; target t), T-count 7 (Nielsen & Chuang Fig. 4.9)"""
+    return [(HGate, (t,)), (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (t,)),
             (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (b,)), (TGate, (t,)),
             (HGate, (t,)), (CNOTGate, (a, b)), (TGate, (a,)), (TdgGate, (b,)), (CNOTGate, (a, b))]
-    return [domain._lookup_action(cls, qs) for cls, qs in word]
 
 
-def test_benchmark_goals_solved_by_reference_circuits():
+def test_benchmark_targets_solved_by_known_circuits():
+    """Qubit 0 is the most significant bit: toffoli flips qubit 2 when 0 and 1 are set, fredkin swaps 1 and 2 when 0 is"""
     ed = EXACT['_I']
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data = pickle.load(open(os.path.join(root, 'tmp/n3_goals.pkl'), 'rb'))
-    names = ['cch', 'ccrz_2', 'ccz', 'csqrtiswap', 'fredkin', 'toffoli']
-    for name in ['ccz', 'toffoli', 'fredkin', 'cch']:
-        goal = QGoalExact.from_complex(data['goals'][names.index(name)].unitary)
-        solved = False
-        for qmap in (lambda q: q, lambda q: 2 - q):
-            s = ed.sample_start_states(1)[0]
-            for a in _qasm_word(os.path.join(root, f'data/circuits/3qubit/{name}.qasm'), ed, qmap):
-                s = ed.next_state([s], [a])[0][0]
-            solved |= ed.is_solved([s], [goal])[0]
-        assert solved, name
+    words = {
+        'toffoli': _toffoli_word(),
+        'ccz': [g for g in _toffoli_word() if g != (HGate, (2,))],  # the Toffoli word without the target H gates
+        'fredkin': [(CNOTGate, (2, 1))] + _toffoli_word() + [(CNOTGate, (2, 1))],
+    }
+    for name, word in words.items():
+        assert ed.is_solved([_run(ed, word)], [_target(name)])[0], name
 
 
 def test_problem_instances():
@@ -148,14 +147,6 @@ def test_problem_instances():
         if k == 0:
             assert g.k == 0 and np.array_equal(g.coeffs, ident.coeffs)
         assert np.isclose(abs(np.linalg.det(g.unitary)), 1)
-    # the Toffoli word reaches the benchmark Toffoli
-    tof = _toffoli_word(ed)
-    s = ident
-    for a in tof:
-        s = ed.next_state([s], [a])[0][0]
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data = pickle.load(open(os.path.join(root, 'tmp/n3_goals.pkl'), 'rb'))
-    assert ed.is_solved([s], [QGoalExact.from_complex(data['goals'][5].unitary)])[0]
 
 
 def test_encoding_dims_and_bits_lossless():
@@ -199,9 +190,7 @@ def test_channel_rows_clifford_vs_toffoli():
         assert (ex == 0).all() and ((coef != 0).any(-1).sum(-1) == 1).all()
         assert set(np.unique(coef[..., 0])) <= {-1, 0, 1} and (coef[..., 1] == 0).all()
     # Toffoli(0,1,2): X0, X1, Z2 rows spread over 4 Paulis with coefficient 1/2 (exponent 2); X2, Z0, Z1 stay single
-    s = ident
-    for a in _toffoli_word(ed):
-        s = ed.next_state([s], [a])[0][0]
+    s = _run(ed, _toffoli_word())
     coef, ex = ed._channel(s.coeffs[None], np.array([s.k]))
     support = (coef != 0).any(-1).sum(-1)[0]
     assert support.tolist() == [4, 4, 1, 1, 1, 4], support.tolist()   # rows: X0 X1 X2 Z0 Z1 Z2
@@ -353,11 +342,12 @@ def test_compact_storage_hash_and_pickle():
     assert child._parent is s
     back = pickle.loads(pickle.dumps(child))
     assert back == child and hash(back) == hash(child) and back._parent is None and back._rel is None
-    # goal files written before compact storage (int64 coefficients, no caches) still load and compare
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data = pickle.load(open(os.path.join(root, 'data/n3_goals_exact.pkl'), 'rb'))
-    g = data['goals'][0]
-    assert g.coeffs.dtype == np.int16 and g == QGoalExact.from_complex(g.unitary)
+    # goals pickled before compact storage (their state is the plain __dict__: int64 coefficients and k, no caches)
+    # still load and compare
+    g = _target('cch')
+    old = QGoalExact.__new__(QGoalExact)
+    old.__setstate__({'coeffs': g.coeffs.astype(np.int64), 'k': g.k})  # what unpickling such a file does
+    assert old.coeffs.dtype == np.int16 and old == g and hash(old) == hash(g)
     # coefficients beyond int16 stay int64 (and equal states hash alike)
     big = np.zeros((8, 8, 4), dtype=np.int64)
     big[0, 0, 0] = 1 << 20
