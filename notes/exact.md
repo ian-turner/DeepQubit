@@ -14,7 +14,7 @@ depends only on the values, so hashes stay consistent. Arithmetic is int64. Only
 
 ## Relation to the float domain
 
-`QCircuitExact` subclasses `QCircuit` and reuses its action objects, gate sets, `G` macro-word goals and parser
+`QCircuitExact` subclasses `QCircuit` and reuses its action objects, gate sets and parser
 conventions. Only state representation, transitions, goals and the network input are replaced:
 
 | Method | Exact implementation |
@@ -22,7 +22,6 @@ conventions. Only state representation, transitions, goals and the network input
 | `next_state` | integer row operations per gate (grouped by action); only H/CH results are √2-reduced and only gates that touch row 0 (H, CH, X, Y) re-canonicalized — phase gates, CNOT and CZ keep a canonical input canonical |
 | `sample_goal_from_state` | G·S† via the companion form, canonical |
 | `is_solved` | exact equality |
-| `_macro_goal_states` | same prefix rule as the float domain (`_macro_prefix`), exact application |
 | `to_np_flat_sg` | binary/residue encodings below |
 
 **Relative unitary without products** (`_relative`): G (A S)† = (G S†) A†, so a state that `next_state` generated
@@ -45,7 +44,7 @@ transpose.
 
 ## Domain string
 
-`qcircuit_exact.n<N>[_I|_S][_G[<frac>]][_<encoding>][_K<cap>]`, e.g. `qcircuit_exact.n3_I_G_B9+C2`, or
+`qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>]`, e.g. `qcircuit_exact.n3_I_B9+C2`, or
 `qcircuit_exact.n3_I_Z9` with `resnet_fc_ring` (recommended).
 No `e` (no ε), no `P`/`R` (goals must be exact). `K<cap>` caps the exponent one-hots (default 20).
 

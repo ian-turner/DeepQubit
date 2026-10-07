@@ -21,7 +21,7 @@ from utils import ring
 from utils.matrix_utils import unitary_distance
 
 FLOAT = {gs: get_domain_from_arg(f'qcircuit.n3_e0.000001{gs}')[0] for gs in ('', '_I')}
-EXACT = {gs: get_domain_from_arg(f'qcircuit_exact.n3{gs}_G_B9+C2+M')[0] for gs in ('', '_I')}
+EXACT = {gs: get_domain_from_arg(f'qcircuit_exact.n3{gs}_B9+C2+M')[0] for gs in ('', '_I')}
 
 
 def walk_both(gs, word):
@@ -114,6 +114,14 @@ def _qasm_word(path, domain, qmap):
     return acts
 
 
+def _toffoli_word(domain, a=0, b=1, t=2):
+    """15-gate Toffoli (controls a, b; target t), T-count 7 (Nielsen & Chuang Fig. 4.9), as CliffT_inv actions"""
+    word = [(HGate, (t,)), (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (t,)),
+            (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (b,)), (TGate, (t,)),
+            (HGate, (t,)), (CNOTGate, (a, b)), (TGate, (a,)), (TdgGate, (b,)), (CNOTGate, (a, b))]
+    return [domain._lookup_action(cls, qs) for cls, qs in word]
+
+
 def test_benchmark_goals_solved_by_reference_circuits():
     ed = EXACT['_I']
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -130,7 +138,7 @@ def test_benchmark_goals_solved_by_reference_circuits():
         assert solved, name
 
 
-def test_macro_goals_and_problem_instances():
+def test_problem_instances():
     ed = EXACT['_I']
     np.random.seed(0)
     states, goals = ed.sample_problem_instances([0, 1, 5, 15, 16, 30] * 5)
@@ -140,8 +148,8 @@ def test_macro_goals_and_problem_instances():
         if k == 0:
             assert g.k == 0 and np.array_equal(g.coeffs, ident.coeffs)
         assert np.isclose(abs(np.linalg.det(g.unitary)), 1)
-    # a full Toffoli macro word reaches the benchmark Toffoli
-    tof = ed._expand_macro(MACROS['toffoli'][0](0, 1, 2))
+    # the Toffoli word reaches the benchmark Toffoli
+    tof = _toffoli_word(ed)
     s = ident
     for a in tof:
         s = ed.next_state([s], [a])[0][0]
@@ -192,7 +200,7 @@ def test_channel_rows_clifford_vs_toffoli():
         assert set(np.unique(coef[..., 0])) <= {-1, 0, 1} and (coef[..., 1] == 0).all()
     # Toffoli(0,1,2): X0, X1, Z2 rows spread over 4 Paulis with coefficient 1/2 (exponent 2); X2, Z0, Z1 stay single
     s = ident
-    for a in ed._expand_macro(MACROS['toffoli'][0](0, 1, 2)):
+    for a in _toffoli_word(ed):
         s = ed.next_state([s], [a])[0][0]
     coef, ex = ed._channel(s.coeffs[None], np.array([s.k]))
     support = (coef != 0).any(-1).sum(-1)[0]
@@ -205,8 +213,8 @@ def test_channel_rows_clifford_vs_toffoli():
 
 
 def test_parser():
-    d = get_domain_from_arg('qcircuit_exact.n3_I_G0.3_B7+C3_K12')[0]
-    assert d.num_qubits == 3 and d.gateset == 'CliffT_inv' and d.macro_frac == 0.3 and d.k_cap == 12
+    d = get_domain_from_arg('qcircuit_exact.n3_I_B7+C3_K12')[0]
+    assert d.num_qubits == 3 and d.gateset == 'CliffT_inv' and d.k_cap == 12
     assert d._parts == [('B', 7), ('C', 3)]
     assert get_domain_from_arg('qcircuit_exact.n2')[0]._parts == [('B', 9), ('C', 2)]
     try:

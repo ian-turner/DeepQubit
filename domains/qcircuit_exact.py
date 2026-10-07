@@ -3,10 +3,10 @@
 States and goals are unitaries over the ring D[omega] = Z[omega, 1/sqrt2] stored as integer
 coefficient arrays plus an exponent (see utils/ring.py), always in canonical form, so hashing and
 equality are exact and there is no epsilon. Gates are the same action objects as domains/qcircuit.py
-(applied as integer row operations), and the parser, gate sets and macro-word goals are reused.
+(applied as integer row operations), and the parser conventions and gate sets are reused.
 The network input is built from residues of the exact coefficients (binary) rather than floats.
 
-Domain string: qcircuit_exact.n<N>[_I|_S][_G[<frac>]][_<encoding>][_K<cap>], e.g. qcircuit_exact.n3_I_G_B9+C2
+Domain string: qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>], e.g. qcircuit_exact.n3_I_B9+C2
 Encodings (joined by '+'):
   B<m>  residues mod 2^m of the 4 ring coefficients of every entry of G S^dagger (m bits each; default 9),
         plus a one-hot of the exponent k. Lossless while every coefficient is < 2^(m-1), i.e. k <= 2m-2.
@@ -118,10 +118,9 @@ _RAISES_K: Tuple[type, ...] = (HGate, CHGate)
 
 @domain_factory.register_class('qcircuit_exact')
 class QCircuitExact(QCircuit):
-    def __init__(self, num_qubits: int, gateset: str = 'CliffT', macro_frac: float = 0.0, encoding: str = 'B9+C2',
-                 k_cap: int = 20):
+    def __init__(self, num_qubits: int, gateset: str = 'CliffT', encoding: str = 'B9+C2', k_cap: int = 20):
         super().__init__(num_qubits=num_qubits, epsilon=0.0, perturb=False, encoding='matrix', gateset=gateset,
-                         random_goal=False, nerf_dim=0, macro_frac=macro_frac)
+                         random_goal=False, nerf_dim=0)
         self.encoding = encoding
         self.k_cap = k_cap  # exponent one-hots are capped here (channel rows at 2 * k_cap)
         self.N = 1 << num_qubits
@@ -142,8 +141,8 @@ class QCircuitExact(QCircuit):
         self._chan_sign: NDArray = np.where(self._phase >= 4, -1.0, 1.0)[None, :, :, None]  # (1, 4^n, N, 1)
 
     def __repr__(self) -> str:
-        return 'QCircuitExact(gateset=%s, num_qubits=%d, encoding=%s, k_cap=%d, macro_frac=%s)' % \
-               (self.gateset, self.num_qubits, self.encoding, self.k_cap, self.macro_frac)
+        return 'QCircuitExact(gateset=%s, num_qubits=%d, encoding=%s, k_cap=%d)' % \
+               (self.gateset, self.num_qubits, self.encoding, self.k_cap)
 
     @staticmethod
     def _parse_encoding(encoding: str) -> List[Tuple[str, int]]:
@@ -289,16 +288,6 @@ class QCircuitExact(QCircuit):
     def is_solved(self, states: List[QStateExact], goals: List[QGoalExact]) -> List[bool]:
         return [s.k == g.k and np.array_equal(s.coeffs, g.coeffs) for s, g in zip(states, goals)]
 
-    def _macro_goal_states(self, states_start: List[QStateExact], num_steps_l: List[int]) -> List[QStateExact]:
-        states_goal: List[QStateExact] = []
-        for state, num_steps in zip(states_start, num_steps_l):
-            c, k = state.coeffs[None].astype(np.int64), np.array([state.k], dtype=np.int64)
-            for act in self._macro_prefix(num_steps):
-                c, k = ring.reduce_batch(*self._apply_group(c, k, act))
-            c, k = ring.canonicalize_batch(c, k)
-            states_goal.append(QStateExact(c[0], k[0]))
-        return states_goal
-
     # ---- neural network input ---------------------------------------------------------------
     def _part_dim(self, kind: str, m: int) -> int:
         n, N = self.num_qubits, self.N
@@ -375,8 +364,6 @@ class QCircuitExactParser(Parser):
                 args_dict['gateset'] = 'CliffT_S'
             elif arg == 'I':
                 args_dict['gateset'] = 'CliffT_inv'
-            elif re.fullmatch(r'G(\d*\.?\d*)', arg):
-                args_dict['macro_frac'] = float(arg[1:]) if len(arg) > 1 else 0.5
             elif re.fullmatch(r'[BCMZ]\d*(\+[BCMZ]\d*)*', arg):
                 args_dict['encoding'] = arg
             else:
@@ -384,9 +371,9 @@ class QCircuitExactParser(Parser):
         return args_dict
 
     def help(self) -> str:
-        return ("n<N> qubits, I/S gate set, G[<frac>] macro goals, encoding B<m>/C<m>/M joined by '+' (or Z<m> alone), "
+        return ("n<N> qubits, I/S gate set, encoding B<m>/C<m>/M joined by '+' (or Z<m> alone), "
                 "K<cap> exponent cap. "
-                "E.g. 'qcircuit_exact.n3_I_G_B9+C2'")
+                "E.g. 'qcircuit_exact.n3_I_B9+C2'")
 
 
 @register_nnet_input('qcircuit_exact', 'qcircuit_exact_nnet_input_fix_act')

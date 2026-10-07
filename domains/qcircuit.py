@@ -1,6 +1,4 @@
 import re
-import time
-import itertools
 import numpy as np
 from numpy.typing import NDArray
 from abc import ABC
@@ -14,7 +12,6 @@ from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWa
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
 from deepxube.factories.domain_factory import domain_factory
 from deepxube.factories.nnet_input_factory import register_nnet_input
-from deepxube.utils.timing_utils import Times
 
 from utils.matrix_utils import *
 from utils.perturb import perturb_unitary_givens_batch
@@ -199,69 +196,6 @@ def get_gate_set(gateset: str) -> List[QAction]:
             return [HGate, SGate, SdgGate, TGate, TdgGate, CNOTGate]
 
 
-# ---------------------------------------------------------------------------
-# Macro gates: known exact Clifford+T words for structured multi-qubit gates.
-# Each macro maps distinct qubit indices to a circuit-order list of
-# (gate_class, qubits) pairs (first pair is applied first). They are used to
-# generate structured training goals (domain flag `G`) that random walks from
-# the identity essentially never produce (Toffoli-like permutations, CCZ-like
-# sign diagonals, ...). Every word is composed of gate-set gates, so every
-# prefix is exactly reachable by construction.
-# ---------------------------------------------------------------------------
-MacroWord = List[Tuple[Type[QAction], Tuple[int, ...]]]
-
-
-def _toffoli(a: int, b: int, t: int) -> MacroWord:
-    """15-gate Toffoli (controls a, b; target t), T-count 7 (Nielsen & Chuang Fig. 4.9)"""
-    return [(HGate, (t,)), (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (t,)),
-            (CNOTGate, (b, t)), (TdgGate, (t,)), (CNOTGate, (a, t)), (TGate, (b,)), (TGate, (t,)),
-            (HGate, (t,)), (CNOTGate, (a, b)), (TGate, (a,)), (TdgGate, (b,)), (CNOTGate, (a, b))]
-
-
-def _ccz(a: int, b: int, c: int) -> MacroWord:
-    """13-gate CCZ: the Toffoli word without the two H gates on the target"""
-    return [g for g in _toffoli(a, b, c) if g != (HGate, (c,))]
-
-
-def _fredkin(c: int, a: int, b: int) -> MacroWord:
-    """17-gate controlled-SWAP (control c, swaps a and b)"""
-    return [(CNOTGate, (b, a))] + _toffoli(c, a, b) + [(CNOTGate, (b, a))]
-
-
-def _swap(a: int, b: int) -> MacroWord:
-    return [(CNOTGate, (a, b)), (CNOTGate, (b, a)), (CNOTGate, (a, b))]
-
-
-def _cz(a: int, b: int) -> MacroWord:
-    return [(HGate, (b,)), (CNOTGate, (a, b)), (HGate, (b,))]
-
-
-def _cs(a: int, b: int) -> MacroWord:
-    """controlled-S = (T x T) CNOT (I x Tdg) CNOT"""
-    return [(TGate, (a,)), (TGate, (b,)), (CNOTGate, (a, b)), (TdgGate, (b,)), (CNOTGate, (a, b))]
-
-
-def _ch(a: int, b: int) -> MacroWord:
-    """controlled-H (qelib1.inc definition)"""
-    return [(HGate, (b,)), (SdgGate, (b,)), (CNOTGate, (a, b)), (HGate, (b,)), (TGate, (b,)), (CNOTGate, (a, b)),
-            (TGate, (b,)), (HGate, (b,)), (SGate, (b,)), (XGate, (b,)), (SGate, (a,))]
-
-
-# name -> (word builder, number of distinct qubits it takes)
-MACROS: Dict[str, Tuple[Any, int]] = {
-    'toffoli': (_toffoli, 3), 'ccz': (_ccz, 3), 'fredkin': (_fredkin, 3),
-    'swap': (_swap, 2), 'cz': (_cz, 2), 'cs': (_cs, 2), 'ch': (_ch, 2),
-}
-
-# exact replacements (in preference order) for gates missing from a gate set
-_GATE_SUBS: Dict[Type[QAction], List[List[Type[QAction]]]] = {
-    TdgGate: [[ZGate, SGate, TGate], [SGate, SGate, SGate, TGate]],   # T^7
-    SdgGate: [[ZGate, SGate], [SGate, SGate, SGate]],                 # S^3
-    ZGate: [[SGate, SGate]],
-    XGate: [[HGate, ZGate, HGate], [HGate, SGate, SGate, HGate]],
-}
-
-
 @domain_factory.register_class('qcircuit')
 class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                StartGoalWalkable[QState, QAction, QGoal],
@@ -274,12 +208,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  encoding: str = 'matrix',
                  gateset: str = 'CliffT',
                  random_goal: bool = False,
-                 nerf_dim: int = 0,
-                 macro_frac: float = 0.0):
+                 nerf_dim: int = 0):
         super().__init__()
         
         self.nerf_dim = nerf_dim
-        self.macro_frac = macro_frac
         self.perturb = perturb
         self.num_qubits = num_qubits
         self.epsilon = epsilon
@@ -290,13 +222,10 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self._identity = tensor_product([I] * num_qubits)
         self._identity_hash = hash_unitary(self._identity)
         self._generate_actions(gateset)
-        self._macro_words: List[List[QAction]] = self._generate_macro_words() if macro_frac > 0 else []
-        if macro_frac > 0 and len(self._macro_words) == 0:
-            raise ValueError(f"macro goals (flag G) need at least 2 qubits, got {num_qubits}")
 
     def __repr__(self) -> str:
-        return 'QCircuit(gateset=%s, num_qubits=%d, epsilon=%f, nerf_dim=%d, perturb=%s, encoding=%s, macro_frac=%s)' % \
-               (self.gateset, self.num_qubits, self.epsilon, self.nerf_dim, str(self.perturb), self.encoding, self.macro_frac)
+        return 'QCircuit(gateset=%s, num_qubits=%d, epsilon=%f, nerf_dim=%d, perturb=%s, encoding=%s)' % \
+               (self.gateset, self.num_qubits, self.epsilon, self.nerf_dim, str(self.perturb), self.encoding)
 
     def _generate_actions(self, gateset: str):
         """
@@ -336,93 +265,6 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
             if isinstance(act, ControlledGate) and (act.control, act.target) == qubits:
                 return act
         return None
-
-    def _expand_macro(self, word: MacroWord) -> List[QAction]:
-        """Turns a macro word into gate-set actions, substituting exact replacements for missing gates"""
-        acts: List[QAction] = []
-        for gate, qubits in word:
-            act = self._lookup_action(gate, qubits)
-            if act is not None:
-                acts.append(act)
-                continue
-            for sub in _GATE_SUBS.get(gate, []):
-                sub_acts = [self._lookup_action(g, qubits) for g in sub]
-                if all(a is not None for a in sub_acts):
-                    acts.extend(sub_acts)  # type: ignore[arg-type]
-                    break
-            else:
-                raise ValueError(f"Gate set {self.gateset!r} has no way to build {gate.__name__} on qubits {qubits}")
-        return acts
-
-    def _generate_macro_words(self) -> List[List[QAction]]:
-        """All macros over all assignments of distinct qubits, expanded to gate-set actions"""
-        words: List[List[QAction]] = []
-        for _, (builder, arity) in MACROS.items():
-            if arity > self.num_qubits:
-                continue
-            for qubits in itertools.permutations(range(self.num_qubits), arity):
-                words.append(self._expand_macro(builder(*qubits)))
-        return words
-
-    def _macro_goal_states(self, states_start: List[QState], num_steps_l: List[int]) -> List[QState]:
-        """Structured goals: concatenate random macro words and keep a prefix of at most `num_steps` gates,
-        so the goal is reachable in at most num_steps gates. Half of the time the prefix is cut at exactly
-        num_steps (partial macros, i.e. the dense intermediate states of a decomposition); otherwise it is
-        cut at the last macro boundary <= num_steps, so products of whole macros (Toffoli, CCZ, ...) are
-        frequent goals rather than only appearing when num_steps happens to equal a word length"""
-        Us: List[NDArray] = []
-        for state, num_steps in zip(states_start, num_steps_l):
-            U = state.unitary
-            for act in self._macro_prefix(num_steps):
-                U = np.matmul(act._full_unitary, U)
-            Us.append(U.astype(np.complex128))
-        return self._make_states(np.array(Us))
-
-    def _macro_prefix(self, num_steps: int) -> List[QAction]:
-        """Random macro words concatenated and cut to at most num_steps gates (see _macro_goal_states)"""
-        acts: List[QAction] = []
-        boundary: int = 0
-        while len(acts) < num_steps:
-            word = self._macro_words[np.random.randint(len(self._macro_words))]
-            if len(acts) + len(word) <= num_steps:
-                boundary = len(acts) + len(word)
-            acts.extend(word)
-        cut: int = num_steps if (np.random.uniform() < 0.5 or boundary == 0) else boundary
-        return acts[:cut]
-
-    def sample_problem_instances(self, num_steps_l: List[int], times: Optional[Times] = None) -> Tuple[List[QState], List[QGoal]]:
-        """As the base class (identity start, random walk of num_steps, relative goal), except that a fraction
-        `macro_frac` of the instances get a structured goal built from macro words instead of a random walk"""
-        if (self.macro_frac <= 0) or self.random_goal:
-            return super().sample_problem_instances(num_steps_l, times=times)
-        if times is None:
-            times = Times()
-
-        start_time = time.time()
-        states_start: List[QState] = self.sample_start_states(len(num_steps_l))
-        times.record_time("sample_start_states", time.time() - start_time)
-
-        start_time = time.time()
-        num_steps = np.array(num_steps_l)
-        use_macro = (np.random.uniform(size=len(num_steps_l)) < self.macro_frac) & (num_steps > 0)
-        states_goal: List[QState] = list(states_start)
-        idx_walk = np.where(~use_macro)[0]
-        if len(idx_walk) > 0:
-            walked = self.random_walk([states_start[i] for i in idx_walk], [int(num_steps[i]) for i in idx_walk])[0]
-            for i, state in zip(idx_walk, walked):
-                states_goal[i] = state
-        idx_macro = np.where(use_macro)[0]
-        if len(idx_macro) > 0:
-            structured = self._macro_goal_states([states_start[i] for i in idx_macro], [int(num_steps[i]) for i in idx_macro])
-            for i, state in zip(idx_macro, structured):
-                states_goal[i] = state
-        times.record_time("random_walk", time.time() - start_time)
-
-        start_time = time.time()
-        goals: List[QGoal] = self.sample_goal_from_state(states_start, states_goal)
-        times.record_time("sample_goal", time.time() - start_time)
-
-        return states_start, goals
 
     def actions_to_indices(self, actions: List[QAction]) -> List[int]:
         return [x.action for x in actions]
@@ -520,9 +362,6 @@ class QCircuitParser(Parser):
                 args_dict['gateset'] = 'CliffT_S'
             elif arg == 'I':
                 args_dict['gateset'] = 'CliffT_inv'
-            elif re.fullmatch(r'G(\d*\.?\d*)', arg):
-                # structured (macro-word) goals; `G` = half of the instances, `G0.3` = 30%
-                args_dict['macro_frac'] = float(arg[1:]) if len(arg) > 1 else 0.5
         return args_dict
 
     def help(self) -> str:

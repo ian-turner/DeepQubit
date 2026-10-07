@@ -28,7 +28,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 
 ## Domain String Syntax
 
-`qcircuit.n<N>_<flags>` — parsed by `QCircuitParser` (the exact domain `qcircuit_exact.n<N>_<flags>` takes `n`, `I`/`S`, `G`, an encoding `B<m>`/`C<m>`/`M` (or `Z<m>` alone, the compact form for `resnet_fc_ring`) and `K<cap>`; see [exact](exact.md)):
+`qcircuit.n<N>_<flags>` — parsed by `QCircuitParser` (the exact domain `qcircuit_exact.n<N>_<flags>` takes `n`, `I`/`S`, an encoding `B<m>`/`C<m>`/`M` (or `Z<m>` alone, the compact form for `resnet_fc_ring`) and `K<cap>`; see [exact](exact.md)):
 
 | Flag | Meaning |
 |------|---------|
@@ -43,4 +43,3 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | `R` | Random goals |
 | `S` | CliffT_S gate set |
 | `I` | CliffT_inv gate set (same gates as `S`) |
-| `G`, `G<frac>` | Structured macro-word goals for that fraction of training instances (default 0.5) |
