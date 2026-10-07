@@ -18,7 +18,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Setup env | `source setup.sh` |
 | Generate goals | `bash scripts/goal_gen.sh` |
 | Train | `bash scripts/train.sh` |
-| Training curves (all runs in `tmp/`) | `python scripts/train_report.py [--smooth N]` → `data/training/*.csv`, `paper/images/*.png` |
+| Training comparison graphs | `python scripts/train_report.py [--bins 100]` → `data/training/*.csv` (every run in `tmp/`), `paper/images/<comparison>.png` |
 | Solve | `bash scripts/solve.sh [config] [goals .pkl or .txt dir]` (prints/writes a per-goal `summary.txt`) |
 | Goals from .txt targets | `python scripts/goals_from_txt.py --input <files or dirs> --output <out.pkl> [--domain qcircuit_exact] [--reachable_only]` |
 | Paths to QASM | `python scripts/paths_to_qasm.py --input <results.pkl> --output <dir>` |

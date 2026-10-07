@@ -13,7 +13,7 @@ data/
 └── training/         # <DOMAIN>_<HEUR>.csv per-update % solved (scripts/train_report.py)
 
 paper/
-└── images/           # figures; <DOMAIN>_<HEUR>.png training curves from scripts/train_report.py
+└── images/           # figures; training comparison graphs (<comparison>.png) from scripts/train_report.py
 
 tmp/
 ├── <domain>/<heur>/  # Training checkpoints and TensorBoard logs

@@ -36,9 +36,9 @@ Output goes to `tmp/<DOMAIN>/<HEUR>/`:
 ## Training Progress Graphs (`scripts/train_report.py`)
 
 ```bash
-python scripts/train_report.py [--dir tmp] [--smooth <updates>]
+python scripts/train_report.py [--dir tmp] [--bins 100]
 ```
-Finds every run under `tmp/` (any directory with a `heur_train_summary.pkl`) and graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (mean over random-walk lengths of the % of that update's training searches solved; not a test set). For `tmp/<DOMAIN>/<HEUR>/` it writes `data/training/<DOMAIN>_<HEUR>.csv` (`update, itr, per_solved`) and `paper/images/<DOMAIN>_<HEUR>.png` (300 dpi). `--smooth N` adds a trailing mean over N updates (raw curve drawn faint). Unpickling needs deepxube installed.
+Graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (mean over random-walk lengths of the % of that update's training searches solved; not a test set). Every run under `tmp/` (any directory with a `heur_train_summary.pkl`) gets `data/training/<DOMAIN>_<HEUR>.csv` (`update, itr, per_solved`), unless that CSV already has more updates (a CSV from the cluster is not overwritten by a short local run of the same name). The graphs read only these CSVs, so runs trained on the cluster need just their committed CSVs, not the model files. Each entry of `COMPARISONS` in the script — a list of (legend label, config) pairs, resolved to `tmp/$DOMAIN/$HEUR` by sourcing the config — gets `paper/images/<name>.png` (300 dpi): each run is averaged over bins of consecutive updates, about `--bins` points per run (same bin width for every run in a graph). Runs without a CSV are listed and left out, and a graph is drawn once two of its runs have one; a run's color is its position in the list, so it doesn't change as runs are added. Current comparisons: `n1_e0.01_encodings` (M, H, Q, H+M, Q+M, H+Q, H+M+Q) and `n1_e0.01_nerf_{M,H,H+M+Q}` (no NeRF vs. L5–L20, in a light-to-dark blue ramp). Unpickling needs deepxube installed.
 
 ## Solving (`scripts/solve.sh`)
 
