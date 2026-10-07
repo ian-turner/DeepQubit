@@ -12,4 +12,5 @@ PROCS=8
 
 SOLVE_PATHFIND="graph_q"
 SOLVE_TIME_LIMIT=10
-SOLVE_GOALS="tmp/n1_goals_R_1K.pkl"
+SOLVE_GOALS="data/targets/2qubit"
+SOLVE_REACHABLE_ONLY=1   # skip targets the gate set cannot reach exactly (scripts/check_goals.py)

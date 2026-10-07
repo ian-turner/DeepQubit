@@ -12,4 +12,4 @@ PROCS=7
 
 SOLVE_PATHFIND="graph_q.10B_0.8W"
 SOLVE_TIME_LIMIT=10
-SOLVE_GOALS="tmp/n1_goals_R_1K.pkl"
+SOLVE_GOALS="data/targets/1qubit"

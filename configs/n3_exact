@@ -16,4 +16,5 @@ CHECKPOINT=100
 
 SOLVE_PATHFIND="graph_v.10B_0.8W"
 SOLVE_TIME_LIMIT=1000
-SOLVE_GOALS="tmp/n3_goals2.pkl"
+SOLVE_GOALS="data/targets/3qubit"
+SOLVE_REACHABLE_ONLY=1   # skip targets the gate set cannot reach exactly (cct, csqrtswap; scripts/check_goals.py)
