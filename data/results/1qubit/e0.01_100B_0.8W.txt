@@ -1,0 +1,8 @@
+goal  solved  gates     T  time (s)    nodes gen
+rz3      yes      1     1      0.24           42
+rz4      yes     45    19      1.28       68,844
+rz5      yes     43    19      0.94       46,044
+rz6      yes     42    18      0.38       22,644
+rz7      yes     38    15      1.24       54,444
+
+solved 5/5, mean time (solved) 0.82s
