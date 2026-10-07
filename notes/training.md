@@ -27,8 +27,18 @@ deepxube arg strings are `<value><name>` tokens joined by `_`; see `deepxube upd
 Output goes to `tmp/<DOMAIN>/<HEUR>/`:
 - `heur.pt`, `heur_targ.pt` — current and target network
 - `heur_status.pkl`, `heur_train_summary.pkl` — training state (resumes if present)
-- `output.txt` — stdout log (nothing is printed to the terminal)
-- `heur_tboard/` — TensorBoard logs
+- `output.txt` — stdout log (nothing is printed to the terminal; appended on resume)
+- `heur_tboard/` — TensorBoard logs (`train/loss` per iteration; `train/pathfind/*`, `train/ctgs/*` per update)
+- `heur_chkpt_<itr>.pt` — weights every `CHECKPOINT` updates
+
+`heur_train_summary.pkl` is a deepxube `TrainSummary`: `itr_to_steps_to_pathfindstats[itr][step]` holds `per_solved`, `path_costs`, `search_itrs`, `ctgs_backup`, `num_instances` for each update (keyed by the iteration it started at) and each random-walk length; `itr_to_in_out[itr]` holds the (target, prediction) arrays of that update's first training batch. Only searches that finished during the update (solved, or out of `SEARCH_ITRS`) are counted.
+
+## Training Progress Graphs (`scripts/train_report.py`)
+
+```bash
+python scripts/train_report.py [--dir tmp] [--smooth <updates>] [--fmt pdf|png|svg]
+```
+Finds every run under `tmp/` (any directory with a `heur_train_summary.pkl`) and graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (mean over random-walk lengths of the % of that update's training searches solved; not a test set). For `tmp/<DOMAIN>/<HEUR>/` it writes `data/training/<DOMAIN>_<HEUR>.csv` (`update, itr, per_solved`) and `paper/images/<DOMAIN>_<HEUR>.pdf`. `--smooth N` adds a trailing mean over N updates (raw curve drawn faint). Unpickling needs deepxube installed.
 
 ## Solving (`scripts/solve.sh`)
 

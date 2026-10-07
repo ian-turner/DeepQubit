@@ -4,17 +4,22 @@
 
 ```
 data/
-└── targets/          # Benchmark target unitaries in .txt format (solve.sh takes a directory directly)
-    ├── 1qubit/       # rz3–rz7
-    ├── 2qubit/       # ch, crk_2, crz_2, cs, cz
-    ├── 3qubit/       # cch, ccrz_2, cct, ccz, csqrtiswap, csqrtswap, fredkin, toffoli
-    └── 4qubit/       # rcccx
+├── targets/          # Benchmark target unitaries in .txt format (solve.sh takes a directory directly)
+│   ├── 1qubit/       # rz3–rz7
+│   ├── 2qubit/       # ch, crk_2, crz_2, cs, cz
+│   ├── 3qubit/       # cch, ccrz_2, cct, ccz, csqrtiswap, csqrtswap, fredkin, toffoli
+│   └── 4qubit/       # rcccx
+├── results/<n>qubit/ # solve summaries copied from the cluster
+└── training/         # <DOMAIN>_<HEUR>.csv per-update % solved (scripts/train_report.py)
+
+paper/
+└── images/           # figures; <DOMAIN>_<HEUR>.pdf training curves from scripts/train_report.py
 
 tmp/
 ├── <domain>/<heur>/  # Training checkpoints and TensorBoard logs
 │   ├── heur.pt       # Best heuristic weights
 │   ├── heur_targ.pt  # Target network weights
-│   ├── status.pkl    # Training status
+│   ├── heur_status.pkl, heur_train_summary.pkl  # Training status; per-update search stats (train_report.py)
 │   ├── output.txt    # Training log
 │   └── paths/<pathfind>/  # solve.sh output: results.pkl, output.txt, summary.txt (+ goals.pkl from a .txt dir)
 └── n1_goals_R_*.pkl, n3_goals*.pkl   # older pre-built goal sets (still usable as SOLVE_GOALS)
