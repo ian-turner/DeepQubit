@@ -4,6 +4,10 @@ CSV columns: goal (the pkl's 'names' if present, else the goal index), time (s),
 solved (error <= epsilon). error is unitary_distance, the metric QCircuit.is_solved uses (for one qubit it equals
 trasyn's own error). Default output: data/baselines/trasyn_n<N>_<goals stem>_e<epsilon>_<t_budget>T.csv
 
+The first goal is synthesized once, untimed, before the timed loop: trasyn's first call in a process pays one-time
+costs (on GPU: CUDA/cupy startup and kernel loading; cold reads of its ~60 MB lookup tables) that took ~4 s on the
+cluster vs ~0.2 s per goal after. trasyn keeps no search state between calls, so this does not speed up later goals.
+
 Usage: python scripts/trasyn_bench.py [goals.pkl] [--epsilon 0.01] [--t_budget 30] [--output <csv>]
        (default goals: data/targets/1qubit/random_1000.pkl)
 """
@@ -11,12 +15,25 @@ import os
 import csv
 import pickle
 from time import time
+from typing import Tuple
 from argparse import ArgumentParser
 import trasyn
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import Operator
 
 from utils.matrix_utils import *
+
+
+def synthesize(U: np.ndarray, num_qubits: int, epsilon: float, t_budget: int) -> Tuple[int, int, float]:
+    """Synthesizes U with trasyn; returns (T-count, gate count, unitary_distance error)"""
+    if num_qubits > 1:
+        qc = QuantumCircuit(num_qubits)
+        qc.unitary(U, list(range(num_qubits)))
+        qc_synth, _, _ = trasyn.synthesize_qiskit_circuit(qc, error_threshold=epsilon, nonclifford_budget=t_budget)
+        err = unitary_distance(U, Operator(qc_synth).data)
+        return sum(1 for x in qc_synth.data if x.name == 't'), len(qc_synth), err
+    seq, mat, _ = trasyn.synthesize(U, error_threshold=epsilon, nonclifford_budget=t_budget)
+    return seq.count('t'), len(seq), unitary_distance(U, mat)
 
 
 def main():
@@ -39,25 +56,18 @@ def main():
     os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
 
     print('Running Trasyn benchmark for epsilon=%.2e on %d goals' % (args.epsilon, len(Us)))
+    # untimed warm-up on the first goal, so its time does not include trasyn's one-time startup costs
+    start_time = time()
+    synthesize(Us[0], N, args.epsilon, args.t_budget)
+    print('Warm-up (untimed): %.3f' % (time() - start_time))
+
     rows = []
     with open(output, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['goal', 'time', 't_count', 'gate_count', 'error', 'solved'])
         for i, (name, U) in enumerate(zip(names, Us)):
             start_time = time()
-            if N > 1:
-                qc = QuantumCircuit(N)
-                qc.unitary(U, list(range(N)))
-                qc_synth, _, _ = trasyn.synthesize_qiskit_circuit(qc, error_threshold=args.epsilon,
-                                                                  nonclifford_budget=args.t_budget)
-                err = unitary_distance(U, Operator(qc_synth).data)
-                t_count = sum(1 for x in qc_synth.data if x.name == 't')
-                gate_count = len(qc_synth)
-            else:
-                seq, mat, _ = trasyn.synthesize(U, error_threshold=args.epsilon, nonclifford_budget=args.t_budget)
-                err = unitary_distance(U, mat)
-                t_count = seq.count('t')
-                gate_count = len(seq)
+            t_count, gate_count, err = synthesize(U, N, args.epsilon, args.t_budget)
             synth_time = time() - start_time
 
             row = (name, synth_time, t_count, gate_count, float(err), bool(err <= args.epsilon))
