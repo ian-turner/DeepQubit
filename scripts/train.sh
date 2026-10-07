@@ -16,7 +16,4 @@ deepxube train --domain $DOMAIN_NAME.$DOMAIN \
                --pathfind $PATHFIND \
                --up $UP.${PROCS}p_${STEP_MAX}sm_${SEARCH_ITRS}sitrs_${UP_ITRS:-100}up_${UP_GEN_ITRS:-$UP_ITRS}upg \
                --tr tr_h.${BATCH_SIZE}bs_${MAX_ITRS}maxit_${CHECKPOINT:-0}chkpt \
-               --dir tmp/$DOMAIN/$HEUR \
-               --t_file $TEST_FILE \
-               --t_pathfinds $PATHFIND \
-               --t_search_itrs $TEST_SEARCH_ITRS
+               --dir tmp/$DOMAIN/$HEUR
