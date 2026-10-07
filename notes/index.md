@@ -16,7 +16,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Task | Command |
 |------|---------|
 | Setup env | `source setup.sh` |
-| Generate goals | `bash scripts/goal_gen.sh` |
+| Random goals | `python scripts/goal_gen.py [--num_qubits 1] [--num 1000] [--seed 0]` → `data/targets/<n>qubit/random_<num>.pkl` |
 | Train | `bash scripts/train.sh` |
 | Training comparison graphs | `python scripts/train_report.py [--bins 100]` → `data/training/*.csv` (every run in `tmp/`), `paper/images/<comparison>.png` |
 | Solve | `bash scripts/solve.sh [config] [goals .pkl or .txt dir]` (prints/writes a per-goal `summary.txt`) |
@@ -41,6 +41,5 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | `M` | Matrix encoding (default) |
 | `H+Q`, `Q+H+M`, ... | Concatenated encodings (any `+`-joined combo of M/H/Q) |
 | `P` | Perturb goals |
-| `R` | Random goals |
 | `S` | CliffT_S gate set |
 | `I` | CliffT_inv gate set (same gates as `S`) |

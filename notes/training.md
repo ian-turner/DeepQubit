@@ -49,7 +49,7 @@ Graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (
 
 The goals (`SOLVE_GOALS`, or the optional second argument) are either a goals `.pkl` or a directory of `.txt` targets. A directory is first converted with `goals_from_txt.py --domain $DOMAIN_NAME` (so `qcircuit_exact` gets ring goals) into `goals.pkl`, which records the file names so the summary can label each goal; `SOLVE_REACHABLE_ONLY=1` adds `--reachable_only` (drops targets the gate set cannot reach exactly, see [data](data.md#reachability)). A `.pkl` without names is summarized by index.
 
-Configs point at the benchmark directories: `n1_*` → `data/targets/1qubit`, `n2_exact*` → `data/targets/2qubit`, `n3_exact*` (incl. `n3_exact_ring`) → `data/targets/3qubit`; the `n2`/`n3` configs set `SOLVE_REACHABLE_ONLY=1`. `configs/test` still uses `tmp/n1_goals_R_100.pkl`. Example: `bash scripts/solve.sh configs/n1_e0.01 tmp/n1_goals_R_1K.pkl` solves the random 1K set instead.
+Configs point at the benchmark directories: `n1_*` → `data/targets/1qubit`, `n2_exact*` → `data/targets/2qubit`, `n3_exact*` (incl. `n3_exact_ring`) → `data/targets/3qubit`; the `n2`/`n3` configs set `SOLVE_REACHABLE_ONLY=1`. `configs/test` solves `data/targets/1qubit/random_1000.pkl`. Example: `bash scripts/solve.sh configs/n1_e0.01 data/targets/1qubit/random_1000.pkl` solves the random 1K set instead.
 
 ## Goals from `.txt` Targets (`scripts/goals_from_txt.py`)
 
@@ -58,13 +58,12 @@ python scripts/goals_from_txt.py --input data/targets/3qubit --output goals.pkl 
 ```
 `--input` takes files and/or directories (directories expand to their `*.txt`, sorted by name; all targets must have the same qubit count). Writes `{'states', 'goals', 'names', 'skipped'}`; `names` are the file stems. With `--domain qcircuit_exact`, targets not in Z[ω,1/√2] (e.g. `rz4`–`rz7`) are skipped; `--tol` is the fitting tolerance (the `.txt` files carry ~8 digits, e.g. `ch`).
 
-## Goal Generation (`scripts/goal_gen.sh`)
+## Random Goals (`scripts/goal_gen.py`)
 
 ```bash
-deepxube problem_inst --domain qcircuit.n1_R --step_max 1 --num 1000 \
-                      --file tmp/n1_goals_R_1K.pkl --redo
+python scripts/goal_gen.py [--num_qubits 1] [--num 1000] [--seed 0] [--output <pkl>]
 ```
-Generates 1000 random 1-qubit goals by random walks from identity.
+Samples `--num` Haar-random 2^n×2^n unitaries with qiskit's `random_unitary` (seeded, so reproducible) as goals from the identity, in deepxube's `{'states', 'goals'}` layout. Default output `data/targets/<n>qubit/random_<num>.pkl`. Replaces the old `R` domain flag and `goal_gen.sh` (`deepxube problem_inst` on `qcircuit.n1_R`).
 
 ## Converting Goals for the Exact Domain (`scripts/goals_to_exact.py`)
 

@@ -11,4 +11,4 @@ PROCS=1
 
 SOLVE_PATHFIND="graph_v.10B_1W"
 SOLVE_TIME_LIMIT=2
-SOLVE_GOALS="tmp/n1_goals_R_100.pkl"
+SOLVE_GOALS="data/targets/1qubit/random_1000.pkl"

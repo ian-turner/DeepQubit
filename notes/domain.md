@@ -61,7 +61,6 @@ Registered as `'qcircuit'` with deepxube's `domain_factory`.
 | `encoding` | `'matrix'` | nnet input encoding; `+`-joined names concatenate (e.g. `'hurwitz+quaternion'`) |
 | `nerf_dim` | 0 | NeRF embedding dim |
 | `perturb` | False | perturb goals during training |
-| `random_goal` | False | sample random unitary goals |
 
 Key methods:
 - `sample_start_states` — returns identity unitaries

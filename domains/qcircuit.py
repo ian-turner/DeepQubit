@@ -6,7 +6,6 @@ from typing import Self, Tuple, List, Dict, Any, Optional, Type
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from qiskit import qasm2
-from qiskit.quantum_info import random_unitary
 from deepxube.base.factory import Parser
 from deepxube.base.domain import State, Action, Goal, ActsEnumFixed, StartGoalWalkable, StringToAct, StateGoalVizable
 from deepxube.base.nnet_input import StateGoalIn, HasFlatSGIn, StateGoalActFixIn, HasFlatSGActsEnumFixedIn
@@ -207,7 +206,6 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
                  perturb: bool = False,
                  encoding: str = 'matrix',
                  gateset: str = 'CliffT',
-                 random_goal: bool = False,
                  nerf_dim: int = 0):
         super().__init__()
         
@@ -216,7 +214,6 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         self.num_qubits = num_qubits
         self.epsilon = epsilon
         self.encoding = encoding
-        self.random_goal = random_goal
         self.gateset = gateset
 
         self._identity = tensor_product([I] * num_qubits)
@@ -299,9 +296,6 @@ class QCircuit(ActsEnumFixed[QState, QAction, QGoal],
         """
         Creates goal objects from state-goal pairs
         """
-        if self.random_goal:
-            return [QGoal(random_unitary(2 ** self.num_qubits).data) for _ in range(len(states_start))]
-
         S = np.array([s.unitary for s in states_start])
         G = np.array([s.unitary for s in states_goal])
         U_b = np.matmul(G, np.conj(S).transpose(0, 2, 1))
@@ -356,8 +350,6 @@ class QCircuitParser(Parser):
                 args_dict['encoding'] = '+'.join(enc_names[c] for c in encoding.group().split('+'))
             elif arg == 'P':
                 args_dict['perturb'] = True
-            elif arg == 'R':
-                args_dict['random_goal'] = True
             elif arg == 'S':
                 args_dict['gateset'] = 'CliffT_S'
             elif arg == 'I':

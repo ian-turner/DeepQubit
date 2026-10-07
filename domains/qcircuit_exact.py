@@ -120,7 +120,7 @@ _RAISES_K: Tuple[type, ...] = (HGate, CHGate)
 class QCircuitExact(QCircuit):
     def __init__(self, num_qubits: int, gateset: str = 'CliffT', encoding: str = 'B9+C2', k_cap: int = 20):
         super().__init__(num_qubits=num_qubits, epsilon=0.0, perturb=False, encoding='matrix', gateset=gateset,
-                         random_goal=False, nerf_dim=0)
+                         nerf_dim=0)
         self.encoding = encoding
         self.k_cap = k_cap  # exponent one-hots are capped here (channel rows at 2 * k_cap)
         self.N = 1 << num_qubits

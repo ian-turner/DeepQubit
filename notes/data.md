@@ -5,7 +5,7 @@
 ```
 data/
 ├── targets/          # Benchmark target unitaries in .txt format (solve.sh takes a directory directly)
-│   ├── 1qubit/       # rz3–rz7
+│   ├── 1qubit/       # rz3–rz7; random_1000.pkl (Haar-random goals from scripts/goal_gen.py)
 │   ├── 2qubit/       # ch, crk_2, crz_2, cs, cz
 │   ├── 3qubit/       # cch, ccrz_2, cct, ccz, csqrtiswap, csqrtswap, fredkin, toffoli
 │   └── 4qubit/       # rcccx
@@ -22,7 +22,7 @@ tmp/
 │   ├── heur_status.pkl, heur_train_summary.pkl  # Training status; per-update search stats (train_report.py)
 │   ├── output.txt    # Training log
 │   └── paths/<pathfind>/  # solve.sh output: results.pkl, output.txt, summary.txt (+ goals.pkl from a .txt dir)
-└── n1_goals_R_*.pkl, n3_goals*.pkl   # older pre-built goal sets (still usable as SOLVE_GOALS)
+└── n3_goals*.pkl    # older pre-built goal sets (still usable as SOLVE_GOALS)
 ```
 
 ## Reachability
@@ -48,9 +48,9 @@ matrix
 
 ## Generating Goals
 
-Random goals from deepxube:
+Haar-random goals (qiskit `random_unitary`, identity start):
 ```bash
-bash scripts/goal_gen.sh   # generates tmp/n1_goals_R_1K.pkl
+python scripts/goal_gen.py   # 1 qubit, 1000 goals, seed 0 -> data/targets/1qubit/random_1000.pkl
 ```
 
 Goals from target `.txt` files (done automatically by `solve.sh` when `SOLVE_GOALS` is a directory):
