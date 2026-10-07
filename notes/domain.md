@@ -51,6 +51,8 @@ Defined in `get_gate_set(gateset: str)`:
 
 Registered as `'qcircuit'` with deepxube's `domain_factory`.
 
+**Import order.** `import deepxube` auto-imports every module under `./domains/` and `./nnets/` (relative to the cwd), swallowing errors as `Failed to import …`. Our modules import `deepxube.base.*` at the top, so importing a domain module first used to start deepxube's auto-import mid-way through it: the dependents (`qcircuit_exact`, `nnets/resnet_fc_ring`) hit a half-initialized module and were silently left unregistered. `domains/__init__.py` now does `import deepxube` first, so any entry point (scripts, notebooks, unpickling goal files) registers everything.
+
 | Parameter | Default | Notes |
 |-----------|---------|-------|
 | `num_qubits` | — | required |
