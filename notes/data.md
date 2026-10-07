@@ -15,7 +15,8 @@ data/
 └── training/         # <DOMAIN>_<HEUR>.csv per-update % solved (scripts/train_report.py)
 
 paper/
-└── images/           # figures; training comparison graphs (<comparison>.png) from scripts/train_report.py
+└── images/           # figures; training comparison graphs (<comparison>.png) from scripts/train_report.py,
+                      #   compare_<trasyn csv stem>_{t_count,gate_count}.png from scripts/trasyn_compare.py
 
 tmp/
 ├── <domain>/<heur>/  # Training checkpoints and TensorBoard logs
