@@ -87,6 +87,18 @@ python scripts/trasyn_bench.py [goals.pkl] [--epsilon 0.01] [--t_budget 30] [--o
 ```
 Writes `data/baselines/trasyn_n<N>_<goals stem>_e<epsilon>_<t_budget>T.csv` with columns `goal, time, t_count, gate_count, error, solved` (`goal` is the pkl's name for it, else its index; `error` is `unitary_distance`, so `solved` = `error ≤ ε` matches `is_solved`), one row per goal written as it goes, then prints the % solved and mean time/T-count/gate count. The first goal is synthesized once untimed before the loop (printed as `Warm-up`): trasyn's first call in a process pays one-time startup costs (~4 s on the cluster GPU vs ~0.2 s per goal after); it keeps no search state between calls, so later goals are not sped up. One qubit uses `trasyn.synthesize`; more qubits go through `synthesize_qiskit_circuit` (transpiles to rotations + CNOTs, so even exact Clifford+T targets like `cs` come out as long approximate circuits). Without cupy, trasyn falls back to numpy on the CPU (~3 s per 1-qubit goal at ε = 0.01).
 
+## Synthetiq Benchmark (`scripts/synthetiq_bench.py`)
+
+Runs the [Synthetiq](https://github.com/eth-sri/synthetiq) baseline on `.txt` targets (files or directories, searched recursively; `.pkl` files are ignored; default `data/targets`). The binary is a parameter, since the checkout lives elsewhere on the cluster: `--bin` (default `$SYNTHETIQ_BIN`, else `~/research/synthetiq/bin/rust`), either the C++ `bin/main` or the Rust `bin/rust`; it is run from the checkout holding it (found by walking up to `data/gates`).
+```bash
+python scripts/synthetiq_bench.py data/targets/1qubit --epsilon 0.01 --time 10 --bin <synthetiq>/bin/main        # approximate
+python scripts/synthetiq_bench.py data/targets/3qubit --exact --reachable_only --time 10 --bin <synthetiq>/bin/main # exact
+```
+- **Approximate** (default): a circuit counts if `unitary_distance ≤ ε` (default 0.01), as in `QCircuit.is_solved`. **`--exact`**: it counts if it equals the target over Z[ω, 1/√2] up to ω^k (canonical `ring.from_complex` forms), as in `QCircuitExact.is_solved` (ε defaults to 1e-6); targets not in the ring (rz4–rz7) are skipped, and `--reachable_only` also skips cct/csqrtswap (same goals as the n2/n3 benchmarks).
+- Synthetiq's own distance is `unitary_distance / √2`, so it is passed `ε/√2` (its paper's `-eps 0.01` allowed `unitary_distance` up to 0.0141).
+- Each target is rewritten as a fully specified spec (the 1-qubit `.txt` targets have no cover lines, which Synthetiq would read as all-unspecified). Gate set `CliffordT` = {h, s, sdg, t, tdg, cx} = our `CliffT_inv` (`I`). A goal stops after `--circuits` (default 10, Synthetiq's default) or `--time` s (default 100); `--threads` default 1 (only single-threaded runs are seeded).
+- Writes `data/baselines/synthetiq_<inputs>_<e<ε>|exact>_<time>s_<circuits>c.csv` with columns `goal, num_qubits, solved, time, gate_count, t_count, t_depth, error, num_circuits, best_gate_count, best_t_count, total_time`: `time` and the gate/T stats are for the first counted circuit (time from Synthetiq's own clock; the wall time if none), `best_*` are minimums over all counted circuits (the first is often far from the best: e.g. 12 gates for rz3 = T), `total_time` is the process wall time. The circuits (OpenQASM 2.0, qiskit qubit order) stay in `data/baselines/<csv stem>/<goal>/`.
+
 ## Converting Results to QASM (`scripts/paths_to_qasm.py`)
 
 ```bash

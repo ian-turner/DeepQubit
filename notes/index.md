@@ -23,6 +23,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Goals from .txt targets | `python scripts/goals_from_txt.py --input <files or dirs> --output <out.pkl> [--domain qcircuit_exact] [--reachable_only]` |
 | Paths to QASM | `python scripts/paths_to_qasm.py --input <results.pkl> --output <dir>` |
 | Trasyn benchmark | `python scripts/trasyn_bench.py [goals.pkl] [--epsilon 0.01]` → `data/baselines/trasyn_*.csv` (default goals `data/targets/1qubit/random_1000.pkl`) |
+| Synthetiq benchmark | `python scripts/synthetiq_bench.py [targets] --bin <synthetiq binary> [--exact] [--reachable_only] [--epsilon 0.01] [--time 100]` → `data/baselines/synthetiq_*.csv` (`.txt` targets only) |
 | Check goal reachability | `python scripts/check_goals.py <goals.pkl> [--output <reachable.pkl>]` |
 | Float goals → exact goals | `python scripts/goals_to_exact.py --input <goals.pkl> --output <goals_exact.pkl>` |
 | Exact-domain tests | `python tests/test_exact.py` |
