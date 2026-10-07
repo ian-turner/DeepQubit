@@ -205,7 +205,7 @@ def test_parser():
     d = get_domain_from_arg('qcircuit_exact.n3_I_B7+C3_K12')[0]
     assert d.num_qubits == 3 and d.gateset == 'CliffT_inv' and d.k_cap == 12
     assert d._parts == [('B', 7), ('C', 3)]
-    assert get_domain_from_arg('qcircuit_exact.n2')[0]._parts == [('B', 9), ('C', 2)]
+    assert get_domain_from_arg('qcircuit_exact.n2')[0]._parts == [('Z', 9)]
     try:
         get_domain_from_arg('qcircuit_exact.n3_e0.01')
         assert False

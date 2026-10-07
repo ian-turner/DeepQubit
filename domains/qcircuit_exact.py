@@ -6,7 +6,8 @@ equality are exact and there is no epsilon. Gates are the same action objects as
 (applied as integer row operations), and the parser conventions and gate sets are reused.
 The network input is built from residues of the exact coefficients (binary) rather than floats.
 
-Domain string: qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>], e.g. qcircuit_exact.n3_I_B9+C2
+Domain string: qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>], e.g. qcircuit_exact.n3_I_Z9 (default encoding Z9, for
+nnets/resnet_fc_ring). B, C and M are numpy reference encodings, used by the tests and for plain-resnet ablations.
 Encodings (joined by '+'):
   B<m>  residues mod 2^m of the 4 ring coefficients of every entry of G S^dagger (m bits each; default 9),
         plus a one-hot of the exponent k. Lossless while every coefficient is < 2^(m-1), i.e. k <= 2m-2.
@@ -118,7 +119,7 @@ _RAISES_K: Tuple[type, ...] = (HGate, CHGate)
 
 @domain_factory.register_class('qcircuit_exact')
 class QCircuitExact(QCircuit):
-    def __init__(self, num_qubits: int, gateset: str = 'CliffT', encoding: str = 'B9+C2', k_cap: int = 20):
+    def __init__(self, num_qubits: int, gateset: str = 'CliffT', encoding: str = 'Z9', k_cap: int = 20):
         super().__init__(num_qubits=num_qubits, epsilon=0.0, perturb=False, encoding='matrix', gateset=gateset,
                          nerf_dim=0)
         self.encoding = encoding
@@ -371,9 +372,9 @@ class QCircuitExactParser(Parser):
         return args_dict
 
     def help(self) -> str:
-        return ("n<N> qubits, I/S gate set, encoding B<m>/C<m>/M joined by '+' (or Z<m> alone), "
+        return ("n<N> qubits, I/S gate set, encoding Z<m> (default Z9, for resnet_fc_ring) or B<m>/C<m>/M joined by '+', "
                 "K<cap> exponent cap. "
-                "E.g. 'qcircuit_exact.n3_I_B9+C2'")
+                "E.g. 'qcircuit_exact.n3_I_Z9'")
 
 
 @register_nnet_input('qcircuit_exact', 'qcircuit_exact_nnet_input_fix_act')

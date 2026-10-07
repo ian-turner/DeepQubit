@@ -44,8 +44,9 @@ transpose.
 
 ## Domain string
 
-`qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>]`, e.g. `qcircuit_exact.n3_I_B9+C2`, or
-`qcircuit_exact.n3_I_Z9` with `resnet_fc_ring` (recommended).
+`qcircuit_exact.n<N>[_I|_S][_<encoding>][_K<cap>]`, e.g. `qcircuit_exact.n3_I_Z9` with `resnet_fc_ring` (the
+default encoding is `Z9`, what the ring configs use). The numpy `B`/`C`/`M` parts below are kept as test oracles for
+`RingFeatures` and for plain-`resnet_fc` ablations; no config uses them.
 No `e` (no ε), no `P`/`R` (goals must be exact). `K<cap>` caps the exponent one-hots (default 20).
 
 ## Network input
