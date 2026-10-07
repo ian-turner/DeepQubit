@@ -1,0 +1,11 @@
+goal        solved  gates     T  time (s)    nodes gen
+cch            yes     21     9      1.17       44,562
+ccrz_2          no      -     -     10.03      464,562
+ccz            yes     13     7      0.48       25,662
+csqrtiswap      no      -     -     10.03      420,462
+fredkin        yes     17     7      0.64       34,062
+toffoli        yes     15     7      0.52       29,862
+cct         skipped: not exactly reachable (det = omega^1)
+csqrtswap   skipped: not exactly reachable (det = omega^2)
+
+solved 4/6 (2 skipped), mean time (solved) 0.70s
