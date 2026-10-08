@@ -14,7 +14,8 @@ Targets are .txt files and/or directories, searched recursively for *.txt (.pkl 
 rewritten as a fully specified Synthetiq spec (the 1-qubit targets have no cover lines, which Synthetiq would read as
 all-unspecified) and run in a fresh synthetiq process, from the Synthetiq checkout that holds --bin (found by walking up
 to data/gates), with its CliffordT gate set {h, s, sdg, t, tdg, cx} = DeepQubit's CliffT_inv. --bin is the C++ bin/main
-or the Rust bin/rust: both take the same flags and print the same output. A goal stops after --circuits circuits or
+or the Rust bin/rust: both take the same flags and print the same output (except that the C++ threads print without a
+lock, so with --threads > 1 lines can merge; see found_gaps). A goal stops after --circuits circuits or
 --time seconds. The circuits (OpenQASM 2.0, same qubit order as qiskit) are kept in <output stem>/<goal>/.
 
 CSV columns: goal, num_qubits, solved, time (s to the first counted circuit, Synthetiq's own clock; the process wall
@@ -34,7 +35,7 @@ import shutil
 import subprocess
 import tempfile
 from time import time
-from typing import List, Dict, Tuple, Optional
+from typing import List, Tuple, Optional
 from argparse import ArgumentParser
 
 import numpy as np
@@ -114,15 +115,40 @@ def run_synthetiq(binary: str, root: str, U: NDArray, name: str, out_dir: str, e
     if proc.returncode != 0:
         raise SystemExit(f"synthetiq failed on {name} ({proc.returncode}):\n{proc.stderr}{proc.stdout[-2000:]}")
 
-    # each found circuit prints "<output folder>/ <seconds since the previous one> <index>" and is saved as
-    # <cost>-<count>-<depth>-<thread>-<index>.qasm
-    gaps: Dict[int, float] = {int(m.group(2)): float(m.group(1))
-                              for m in re.finditer(r'^.*/ (\S+) (\d+)$', proc.stdout, re.MULTILINE)}
+    # the circuit saved as <cost>-<count>-<depth>-<thread>-<index>.qasm was found sum(gaps[:index]) into the search
+    gaps = found_gaps(proc.stdout)
     found: List[Tuple[float, str]] = []
     for f in glob.glob(os.path.join(out_dir, '*.qasm')):
         idx = int(os.path.splitext(f)[0].rsplit('-', 1)[1])
-        found.append((sum(v for i, v in gaps.items() if i <= idx), f))
+        found.append((sum(gaps[:idx]), f))
+    if len(found) > 0 and max(int(os.path.splitext(f)[0].rsplit('-', 1)[1]) for _, f in found) > len(gaps):
+        print(f"synthetiq printed {len(gaps)} search times for {len(found)} circuits on {name}; "
+              f"times of the later circuits are too low")
     return sorted(found), wall_time
+
+
+def found_gaps(stdout: str) -> List[float]:
+    """seconds between found circuits, in the order synthetiq found them, from its stdout
+
+    Each found circuit prints "<output folder> <seconds since the previous one> <index>". The C++ build's threads
+    print these without a lock, so circuits found together can share a line ("out/ out/ 2.5956e-053.1544e-05 3"
+    then " 4"). Such lines are searched for the gaps, which are the only non-integers printed once the search starts
+    (C++ prints 6 significant digits and 2-digit exponents, Rust plain decimals), and the indices are not used.
+    """
+    lines = stdout.splitlines()
+    folder = next(x[len('Output folder: '):] for x in lines if x.startswith('Output folder: '))
+    gaps: List[float] = []
+    started = False  # the settings header ends at the first line printed by the search, which holds the folder
+    for line in lines:
+        if line.startswith('Output folder: ') or not (started or folder in line):
+            continue
+        started = True
+        m = re.fullmatch(re.escape(folder) + r' (\d+(?:\.\d+)?(?:e[-+]\d+)?) \d+', line)
+        if m:
+            gaps.append(float(m.group(1)))
+        else:  # the folder can hold numbers, e.g. synthetiq_targets_e0.01_100s_10c
+            gaps.extend(float(x) for x in re.findall(r'\d+\.\d+(?:e[-+]\d\d)?|\d+e[-+]\d\d', line.replace(folder, ' ')))
+    return gaps
 
 
 def circuit_stats(filename: str) -> Tuple[NDArray, int, int, int]:
