@@ -1,0 +1,4 @@
+source "configs/n4_exact"
+DOMAIN_NAME="qcircuit_exact"
+DOMAIN="n4_I_Z9"
+HEUR="resnet_fc_ring.1000H_4B_bn_2C"

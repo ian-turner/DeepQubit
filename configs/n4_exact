@@ -1,0 +1,17 @@
+DOMAIN="n4_e0.000001_I"
+HEUR="resnet_fc.1000H_4B_bn"
+PATHFIND="graph_v.1B_1W_0.0E"
+
+BATCH_SIZE=10000
+MAX_ITRS=100000
+UP_ITRS=100
+UP_GEN_ITRS=100
+STEP_MAX=200
+SEARCH_ITRS=1000
+PROCS=10
+CHECKPOINT=100
+
+SOLVE_PATHFIND="graph_v.10B_0.8W"
+SOLVE_TIME_LIMIT=1000
+SOLVE_GOALS="data/targets/4qubit"
+SOLVE_REACHABLE_ONLY=1   # skip targets the gate set cannot reach exactly (all 9 in data/targets/4qubit pass; scripts/check_goals.py)
