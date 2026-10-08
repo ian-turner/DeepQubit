@@ -22,7 +22,7 @@ Quantum circuit synthesis using reinforcement learning and search, based on [Dee
 | Solve | `bash scripts/solve.sh [config] [goals .pkl or .txt dir]` (prints/writes a per-goal `summary.txt`) |
 | Goals from .txt targets | `python scripts/goals_from_txt.py --input <files or dirs> --output <out.pkl> [--domain qcircuit_exact] [--reachable_only]` (stops on a partial spec or non-unitary matrix) |
 | Exact benchmark targets | `python scripts/make_targets.py [--synthetiq ~/research/synthetiq] [--check]` → named gates in `data/targets/{2,3,4}qubit/*.txt` + Synthetiq copies (`3qubit_perms/0–29`, `4qubit/{U1,U1_var,U2,adder,cciswap,carry}`); dirs: 2qubit (14 reachable), 3qubit (15), 3qubit_perms (30), 4qubit (9) |
-| Reference T-counts/T-depths | `python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq]` → `data/targets/reference_values.csv` (literature + Synthetiq/Mosca/Gheorghiu baselines, proven_optimal/best_known/reported) |
+| Reference T-counts/T-depths | `python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq]` → `data/baselines/reference_values.csv` (literature + Synthetiq/Mosca/Gheorghiu baselines, proven_optimal/best_known/reported) |
 | Paths to QASM | `python scripts/paths_to_qasm.py --input <results.pkl> --output <dir>` |
 | Trasyn benchmark | `python scripts/trasyn_bench.py [goals.pkl] [--epsilon 0.01]` → `data/baselines/trasyn_*.csv` (default goals `data/targets/1qubit/random_1000.pkl`) |
 | Compare with trasyn | `python scripts/trasyn_compare.py [summary.txt ...] [--trasyn <csv>] [--labels ...]` → per-goal T/gate-count comparison, `paper/images/compare_<trasyn csv stem>_{t_count,gate_count}.png` (default: L10 run vs trasyn on random_1000) |

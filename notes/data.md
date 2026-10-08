@@ -10,11 +10,11 @@ data/
 │   ├── 3qubit/       # cch, ccrz_2, cct, ccz, ciswap, csqrtiswap, csqrtswap, fredkin, maj, peres, qor, rccx, toffoli,
 │   │                 #   toffoli_neg1, toffoli_neg2, tr, uma
 │   ├── 3qubit_perms/ # 0–29: Synthetiq's 30 Clifford-inequivalent 3-qubit permutations (0 = identity)
-│   ├── 4qubit/       # adder, carry, cciswap, ccz, rcccx, toffoli, U1, U1_var, U2
-│   └── reference_values.csv  # published/baseline T-count, T-depth, gate count, depth per target (see below)
+│   └── 4qubit/       # adder, carry, cciswap, ccz, rcccx, toffoli, U1, U1_var, U2
 ├── results/<n>qubit/ # solve summaries copied from the cluster
 ├── baselines/        # per-goal baseline results: trasyn_n<N>_<goals>_e<ε>_<budget>T.csv (scripts/trasyn_bench.py),
 │                     #   synthetiq_<inputs>_<e<ε>|exact>_<time>s_<circuits>c.csv + <same stem>/<goal>/*.qasm (scripts/synthetiq_bench.py)
+│                     #   reference_values.csv: published/baseline T-count, T-depth, gate count, depth per target (see below)
 └── training/         # <DOMAIN>_<HEUR>.csv per-update % solved (scripts/train_report.py)
 
 paper/

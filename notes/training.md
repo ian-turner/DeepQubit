@@ -111,7 +111,7 @@ python scripts/synthetiq_bench.py data/targets/3qubit --exact --reachable_only -
 
 ```bash
 python scripts/make_targets.py [--synthetiq ~/research/synthetiq] [--out data/targets] [--check]
-python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq] [--output data/targets/reference_values.csv]
+python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq] [--output data/baselines/reference_values.csv]
 ```
 `make_targets.py` writes the named exact targets from qiskit circuits (big-endian, `Operator(qc).reverse_qargs()`), each checked against an independent matrix/permutation (the relative-phase `rccx`/`rcccx` against Toffoli/C3X up to a diagonal of 4th roots of unity), for unitarity, ring membership without a phase fix, and `is_reachable`; it copies Synthetiq's permutation/comparison/cciswap/carry specs verbatim (little-endian) with the same checks, and re-reads every file. `--check` re-verifies without writing. `make_reference_values.py` builds the reference table from hand-transcribed literature tables (Rietsch Table II, Amy et al. figures, Gosset, Mosca–Mukhopadhyay Table 1), derived Toffoli-class bounds (each Clifford equivalence checked against the target file), qiskit's RCCX/RC3X definitions and the Synthetiq checkout (tables, circuits re-counted with qiskit and matched to our files, raw Mosca/Gheorghiu outputs); it prints a warning and marks the row INCONSISTENT when a value is below a proven lower bound. Layout and column meanings: [data](data.md#file-formats).
 

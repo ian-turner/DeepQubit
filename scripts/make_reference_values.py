@@ -1,4 +1,4 @@
-"""Writes data/targets/reference_values.csv: published and baseline reference values for the exact benchmark targets.
+"""Writes data/baselines/reference_values.csv: published and baseline reference values for the exact benchmark targets.
 
 Columns: target, num_qubits, source, metric, value, tool, citation, optimality, notes
 - target: the .txt target as <dir>/<stem> under data/targets (3qubit/toffoli, 3qubit_perms/7, 4qubit/U1, ...). Gates
@@ -25,7 +25,7 @@ the length of the printed path), baselines/gheorgiu (Gheorghiu et al. T-depth: t
 per-class T-count/T-depth Synthetiq reports for the 30 permutations (its notebooks/post_processing/64.ipynb);
 qiskit's RCCXGate/RC3XGate definitions for rccx/rcccx.
 
-Usage: python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq] [--output data/targets/reference_values.csv]
+Usage: python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq] [--output data/baselines/reference_values.csv]
 """
 import csv
 import glob
@@ -430,7 +430,7 @@ def set_optimality(rows: List[Dict], is_clifford: Dict[str, bool]) -> None:
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--synthetiq', type=str, default=os.path.expanduser('~/research/synthetiq'))
-    parser.add_argument('--output', type=str, default='data/targets/reference_values.csv')
+    parser.add_argument('--output', type=str, default='data/baselines/reference_values.csv')
     args = parser.parse_args()
 
     is_clifford = clifford_targets()
