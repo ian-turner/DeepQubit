@@ -3,7 +3,7 @@ from functools import lru_cache
 from numpy import trace, log, exp, diag, diagonal
 from numpy.linalg import det, eig, inv, svd
 from numpy.typing import NDArray
-from typing import List
+from typing import List, Tuple
 from qiskit import qasm2
 from qiskit.quantum_info import Operator
 from qiskit.synthesis import OneQubitEulerDecomposer
@@ -19,43 +19,57 @@ P0 = np.array([[1, 0], [0, 0]], dtype=np.complex128)
 P1 = np.array([[0, 0], [0, 1]], dtype=np.complex128)
 
 
-def load_matrix_from_file(filename: str) -> NDArray:
+def load_matrix_from_file(filename: str, tol: float = 1e-6) -> Tuple[int, NDArray]:
+    """Loads a .txt (Synthetiq spec: name, qubit count, matrix rows of (re,im), then an optional 0/1 cover with one row
+    per matrix row) or .npy unitary; returns (num_qubits, matrix). Raises ValueError for a partial spec (a cover with
+    any 0, e.g. Synthetiq's relative-phase targets, whose matrix holds only the cared-for entries) and for a matrix that
+    is not unitary within tol (the .txt entries may carry only ~8 digits)."""
     if filename.endswith('.txt'):
-        num_qubits: int
-        matrix: NDArray
         with open(filename, 'r') as f:
-            lines = [x.strip() for x in list(f)]
-            num_qubits = int(lines[1])
-            N = 2**(num_qubits)
-            matrix = np.zeros((N, N), dtype=np.complex128)
-            for i in range(N):
-                row = lines[2+i]
-                cols = row.split(' ')
-                for j, col in enumerate(cols):
-                    left, right = col.split(',')
-                    real = float(left[1:])
-                    imag = float(right[:-1])
-                    matrix[i][j] = real + imag*1j
-        return num_qubits, matrix
-    
+            lines = [x.strip() for x in f if x.strip() != '']
+        num_qubits = int(lines[1])
+        N = 2**(num_qubits)
+        matrix = np.zeros((N, N), dtype=np.complex128)
+        for i in range(N):
+            cols = lines[2+i].split()
+            if len(cols) != N:
+                raise ValueError(f"{filename}: matrix row {i} has {len(cols)} entries, expected {N}")
+            for j, col in enumerate(cols):
+                left, right = col.split(',')
+                real = float(left[1:])
+                imag = float(right[:-1])
+                matrix[i][j] = real + imag*1j
+        cover = lines[2+N:]
+        if len(cover) > 0:
+            mask = np.array([[int(x) for x in row.split()] for row in cover])
+            if mask.shape != (N, N):
+                raise ValueError(f"{filename}: cover block has shape {mask.shape}, expected {(N, N)}")
+            if not (mask == 1).all():
+                raise ValueError(f"{filename}: partial spec ({int((mask == 0).sum())} unspecified entries in the cover)"
+                                 f"; only fully specified unitaries are supported")
+
     elif filename.endswith('.npy'):
         matrix = np.load(filename)
         num_qubits = int(np.log2(matrix.shape[0]))
-        return num_qubits, matrix
 
     else:
         raise Exception('Invalid file format')
 
+    err = np.abs(matrix @ matrix.conj().T - np.eye(matrix.shape[0])).max()
+    if err > tol:
+        raise ValueError(f"{filename}: matrix is not unitary (max |U U^dag - I| entry {err:.3g} > {tol:g})")
+    return num_qubits, matrix
 
-def save_matrix_to_file(matrix: NDArray, filename: str):
+
+def save_matrix_to_file(matrix: NDArray, filename: str, name: str = 'matrix'):
+    """Writes the .txt format load_matrix_from_file reads: name, qubit count, rows of (re,im), an all-ones cover"""
     num_qubits = int(np.log2(matrix.shape[0]))
     with open(filename, 'w') as f:
-        f.write('matrix\n%s' % num_qubits)
+        f.write(f"{name}\n{num_qubits}\n")
         for row in matrix:
-            row_str = '\n'
-            for x in row:
-                row_str += '(%s,%s) ' % (np.real(x), np.imag(x))
-            f.write(row_str)
+            f.write(' '.join('(%r,%r)' % (float(x.real), float(x.imag)) for x in row) + '\n')
+        for _ in range(matrix.shape[0]):
+            f.write(' '.join(['1'] * matrix.shape[0]) + '\n')
 
 
 def tensor_product(mats: List[NDArray]) -> NDArray:

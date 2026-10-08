@@ -17,9 +17,13 @@ import numpy as np
 from domains.qcircuit import *
 
 
-def det_omega_power(U: np.ndarray) -> int:
-    """det(U) as a power of omega = exp(i pi/4), modulo 8"""
-    return int(round((np.angle(np.linalg.det(U)) / (np.pi / 4)) % 8)) % 8
+def det_omega_power(U: np.ndarray, tol: float = 1e-6) -> int:
+    """det(U) as a power of omega = exp(i pi/4), modulo 8. Raises ValueError if |det(U)| != 1 (not unitary: e.g. the
+    zero matrix of a partial spec, whose det 0 would otherwise read as omega^0)"""
+    d = np.linalg.det(U)
+    if abs(abs(d) - 1) > tol:
+        raise ValueError(f"|det| = {abs(d):.3g}: not a unitary")
+    return int(round((np.angle(d) / (np.pi / 4)) % 8)) % 8
 
 
 def is_reachable(U: np.ndarray) -> bool:

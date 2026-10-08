@@ -128,13 +128,37 @@ def _toffoli_word(a=0, b=1, t=2):
 def test_benchmark_targets_solved_by_known_circuits():
     """Qubit 0 is the most significant bit: toffoli flips qubit 2 when 0 and 1 are set, fredkin swaps 1 and 2 when 0 is"""
     ed = EXACT['_I']
+    x = lambda q: [(HGate, (q,)), (SGate, (q,)), (SGate, (q,)), (HGate, (q,))]  # X = H Z H
     words = {
         'toffoli': _toffoli_word(),
         'ccz': [g for g in _toffoli_word() if g != (HGate, (2,))],  # the Toffoli word without the target H gates
         'fredkin': [(CNOTGate, (2, 1))] + _toffoli_word() + [(CNOTGate, (2, 1))],
+        'peres': _toffoli_word() + [(CNOTGate, (0, 1))],
+        'toffoli_neg1': x(0) + _toffoli_word() + x(0),
+        'toffoli_neg2': x(0) + x(1) + _toffoli_word() + x(0) + x(1),
+        'qor': x(0) + x(1) + _toffoli_word() + x(0) + x(1) + x(2),
+        'tr': x(1) + _toffoli_word() + [(CNOTGate, (0, 1))] + x(1),
+        'maj': [(CNOTGate, (2, 1)), (CNOTGate, (2, 0))] + _toffoli_word(),  # Cuccaro MAJ on (c, b, a) = (0, 1, 2)
+        'uma': _toffoli_word() + [(CNOTGate, (2, 0)), (CNOTGate, (0, 1))],
     }
     for name, word in words.items():
         assert ed.is_solved([_run(ed, word)], [_target(name)])[0], name
+
+
+def test_target_loader_rejects_partial_and_nonunitary():
+    """a Synthetiq partial spec (cover with zeros, like the old all-zero rcccx) and a non-unitary matrix must not load"""
+    tmp = 'tmp/test_exact_targets'
+    os.makedirs(tmp, exist_ok=True)
+    zeros = ' '.join(['(0,0)'] * 4)
+    for name, cover in [('partial', ['0 1 1 1', '1 0 1 1', '1 1 0 1', '1 1 1 0']), ('nonunitary', ['1 1 1 1'] * 4)]:
+        fname = os.path.join(tmp, f'{name}.txt')
+        with open(fname, 'w') as f:
+            f.write('\n'.join(['matrix', '2'] + [zeros] * 4 + cover) + '\n')
+        try:
+            load_matrix_from_file(fname)
+            assert False, f"{name} target loaded"
+        except ValueError:
+            pass
 
 
 def test_problem_instances():

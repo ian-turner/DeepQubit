@@ -13,16 +13,17 @@ Core unitary math used throughout the domain.
 | `unitary_distance(U, C)` | Distance metric from Synthetiq paper; phase-invariant |
 | `phase_align(U)`, `phase_align_batch(Us)` | Removes global phase by making the largest-magnitude entry real and positive; ties within `tol` pick the first entry in row-major order, so the result is stable under fp noise on Clifford+T matrices |
 | `hash_unitary_batch(Us, tol=0.001)`, `hash_unitary(U)` | Phase-aligns, rounds Re/Im to multiples of `tol`, then a fixed seeded random linear map mod 2^64 over the rounded ints → int64 per unitary. Vectorized; same rounding bins (so same equality classes) as the old per-matrix `hash(tuple(...))`, and deterministic across processes |
-| `load_matrix_from_file(f)` | Loads `.txt` or `.npy`; returns `(num_qubits, matrix)` |
-| `save_matrix_to_file(M, f)` | Saves to `.txt` format |
+| `load_matrix_from_file(f, tol=1e-6)` | Loads `.txt` or `.npy`; returns `(num_qubits, matrix)`. Raises `ValueError` for a partial spec (cover block with a 0) or a matrix that is not unitary within `tol` |
+| `save_matrix_to_file(M, f, name='matrix')` | Saves to `.txt` format: name line, qubit count, rows of `(re,im)` (`repr` precision), all-ones cover |
 | `unitaries_to_nnet_input(Us, encoding, nerf_dim)` | Dispatch to encoding — see [encodings](encodings.md) |
 
-**Text file format** (`.txt`):
+**Text file format** (`.txt`, Synthetiq's spec format; see [data](data.md#file-formats)):
 ```
-matrix
+<name or 'matrix'>
 <num_qubits>
 (re,im) (re,im) ...   <- row 0
 ...
+1 1 ...               <- optional cover, one 0/1 row per matrix row (all ones = fully specified)
 ```
 
 ## perturb.py

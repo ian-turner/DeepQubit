@@ -49,7 +49,10 @@ if __name__ == '__main__':
     names, Us = [], []
     num_qubits = set()
     for x in files:
-        n, U = load_matrix_from_file(x)
+        try:
+            n, U = load_matrix_from_file(x)  # rejects partial specs and non-unitary matrices
+        except ValueError as e:
+            raise SystemExit(f"bad target: {e}")
         names.append(os.path.splitext(os.path.basename(x))[0])
         Us.append(U)
         num_qubits.add(n)

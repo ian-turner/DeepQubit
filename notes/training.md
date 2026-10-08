@@ -18,7 +18,7 @@ source setup.sh   # adds repo root to PYTHONPATH; run in every new shell
 | `BATCH_SIZE`, `MAX_ITRS`, `CHECKPOINT` | 10000, 200000, 100 | Trainer args (`--tr tr_h.<bs>bs_<maxit>maxit_<chkpt>chkpt`) |
 | `PROCS`, `STEP_MAX`, `SEARCH_ITRS`, `UP_ITRS`, `UP_GEN_ITRS` | 24, 30, 1000, 100, 100 | Updater args (`--up up_rl_v.<p>p_<sm>sm_<sitrs>sitrs_<up>up_<upg>upg`) |
 
-`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, domain `n3_I_Z9` (compact int16 input; same features as `n3_I_B9` with 18× less data per state), network `resnet_fc_ring.1000H_4B_bn_2C` which expands the bits and computes the channel features on the GPU, solves `data/targets/3qubit` converted to ring goals, see [exact](exact.md)). Runs from before 2026-10-05 used `n3_I_B9` and live in `tmp/n3_I_B9/...`; their checkpoints load unchanged into the Z9 run directory. `configs/n2_exact_ring` is the same ring setup on 2 qubits (`n2_I_Z9`, solves `data/targets/2qubit` with a 100 s limit; all five targets are within 7 gates, and `crk_2` is the same unitary as `cs`).
+`configs/n3_exact` is the 3-qubit exact run (`n3_e0.000001_I`); `configs/n3_exact_ring` runs the integer-ring domain (`DOMAIN_NAME="qcircuit_exact"`, domain `n3_I_Z9` (compact int16 input; same features as `n3_I_B9` with 18× less data per state), network `resnet_fc_ring.1000H_4B_bn_2C` which expands the bits and computes the channel features on the GPU, solves `data/targets/3qubit` converted to ring goals, see [exact](exact.md)). Runs from before 2026-10-05 used `n3_I_B9` and live in `tmp/n3_I_B9/...`; their checkpoints load unchanged into the Z9 run directory. `configs/n2_exact_ring` is the same ring setup on 2 qubits (`n2_I_Z9`, solves `data/targets/2qubit` with a 100 s limit). Since 2026-10-08 the 2qubit and 3qubit directories hold 14 and 15 reachable targets (the old 2-qubit five were within 7 gates; `crk_2`, a duplicate of `cs`, is gone), and `data/targets/3qubit_perms` / `4qubit` are further benchmark sets; see [data](data.md).
 
 `DOMAIN_NAME` (default `qcircuit`) selects the domain class passed as `--domain $DOMAIN_NAME.$DOMAIN` in both scripts. No test-set args (`--t_file`, `--t_search_itrs`, `--t_pathfinds`) are passed: deepxube 0.3.2's test-set code is commented out.
 
@@ -49,14 +49,14 @@ Graphs % solved per update, the same number as `output.txt`'s `Data - %solved` (
 
 The goals (`SOLVE_GOALS`, or the optional second argument) are either a goals `.pkl` or a directory of `.txt` targets. A directory is first converted with `goals_from_txt.py --domain $DOMAIN_NAME` (so `qcircuit_exact` gets ring goals) into `goals.pkl`, which records the file names so the summary can label each goal; `SOLVE_REACHABLE_ONLY=1` adds `--reachable_only` (drops targets the gate set cannot reach exactly, see [data](data.md#reachability)). A `.pkl` without names is summarized by index.
 
-Configs point at the benchmark directories: `n1_*` → `data/targets/1qubit`, `n2_exact*` → `data/targets/2qubit`, `n3_exact*` (incl. `n3_exact_ring`) → `data/targets/3qubit`; the `n2`/`n3` configs set `SOLVE_REACHABLE_ONLY=1`. `configs/test` solves `data/targets/1qubit/random_1000.pkl`. Example: `bash scripts/solve.sh configs/n1_e0.01 data/targets/1qubit/random_1000.pkl` solves the random 1K set instead.
+Configs point at the benchmark directories: `n1_*` → `data/targets/1qubit`, `n2_exact*` → `data/targets/2qubit`, `n3_exact*` (incl. `n3_exact_ring`) → `data/targets/3qubit` (`data/targets/3qubit_perms` and `4qubit` have no config yet); the `n2`/`n3` configs set `SOLVE_REACHABLE_ONLY=1`. `configs/test` solves `data/targets/1qubit/random_1000.pkl`. Example: `bash scripts/solve.sh configs/n1_e0.01 data/targets/1qubit/random_1000.pkl` solves the random 1K set instead.
 
 ## Goals from `.txt` Targets (`scripts/goals_from_txt.py`)
 
 ```bash
 python scripts/goals_from_txt.py --input data/targets/3qubit --output goals.pkl [--domain qcircuit_exact] [--reachable_only] [--tol 1e-6]
 ```
-`--input` takes files and/or directories (directories expand to their `*.txt`, sorted by name; all targets must have the same qubit count). Writes `{'states', 'goals', 'names', 'skipped'}`; `names` are the file stems. With `--domain qcircuit_exact`, targets not in Z[ω,1/√2] (e.g. `rz4`–`rz7`) are skipped; `--tol` is the fitting tolerance (the `.txt` files carry ~8 digits, e.g. `ch`).
+`--input` takes files and/or directories (directories expand to their `*.txt`, sorted by name; all targets must have the same qubit count). Writes `{'states', 'goals', 'names', 'skipped'}`; `names` are the file stems. A target that is a partial spec or not unitary stops the script with the file name (see `load_matrix_from_file`). With `--domain qcircuit_exact`, targets not in Z[ω,1/√2] (e.g. `rz4`–`rz7`) are skipped; `--tol` is the fitting tolerance (the `.txt` files carry ~8 digits, e.g. `ch`).
 
 ## Random Goals (`scripts/goal_gen.py`)
 
@@ -105,6 +105,15 @@ python scripts/synthetiq_bench.py data/targets/3qubit --exact --reachable_only -
 - Synthetiq's own distance is `unitary_distance / √2`, so it is passed `ε/√2` (its paper's `-eps 0.01` allowed `unitary_distance` up to 0.0141).
 - Each target is rewritten as a fully specified spec (the 1-qubit `.txt` targets have no cover lines, which Synthetiq would read as all-unspecified). Gate set `CliffordT` = {h, s, sdg, t, tdg, cx} = our `CliffT_inv` (`I`). A goal stops after `--circuits` (default 10, Synthetiq's default) or `--time` s (default 100); `--threads` default 1 (only single-threaded runs are seeded).
 - Writes `data/baselines/synthetiq_<inputs>_<e<ε>|exact>_<time>s_<circuits>c.csv` with columns `goal, num_qubits, solved, time, gate_count, t_count, t_depth, error, num_circuits, best_gate_count, best_t_count, total_time`: `time` and the gate/T stats are for the first counted circuit (time from Synthetiq's own clock; the wall time if none), `best_*` are minimums over all counted circuits (the first is often far from the best: e.g. 12 gates for rz3 = T), `total_time` is the process wall time. The circuits (OpenQASM 2.0, qiskit qubit order) stay in `data/baselines/<csv stem>/<goal>/`.
+- The default `data/targets` now also takes in `3qubit_perms` and `4qubit` (~90 targets); pass the directories you want.
+
+## Benchmark Targets and Reference Values (`scripts/make_targets.py`, `scripts/make_reference_values.py`)
+
+```bash
+python scripts/make_targets.py [--synthetiq ~/research/synthetiq] [--out data/targets] [--check]
+python scripts/make_reference_values.py [--synthetiq ~/research/synthetiq] [--output data/targets/reference_values.csv]
+```
+`make_targets.py` writes the named exact targets from qiskit circuits (big-endian, `Operator(qc).reverse_qargs()`), each checked against an independent matrix/permutation (the relative-phase `rccx`/`rcccx` against Toffoli/C3X up to a diagonal of 4th roots of unity), for unitarity, ring membership without a phase fix, and `is_reachable`; it copies Synthetiq's permutation/comparison/cciswap/carry specs verbatim (little-endian) with the same checks, and re-reads every file. `--check` re-verifies without writing. `make_reference_values.py` builds the reference table from hand-transcribed literature tables (Rietsch Table II, Amy et al. figures, Gosset, Mosca–Mukhopadhyay Table 1), derived Toffoli-class bounds (each Clifford equivalence checked against the target file), qiskit's RCCX/RC3X definitions and the Synthetiq checkout (tables, circuits re-counted with qiskit and matched to our files, raw Mosca/Gheorghiu outputs); it prints a warning and marks the row INCONSISTENT when a value is below a proven lower bound. Layout and column meanings: [data](data.md#file-formats).
 
 ## Converting Results to QASM (`scripts/paths_to_qasm.py`)
 
