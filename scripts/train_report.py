@@ -47,6 +47,7 @@ COMPARISONS = {
     'n1_e0.01_nerf_H+M+Q': ('NeRF dim', ORDINAL, [
         ('none', 'n1_e0.01_H+M+Q'), ('5', 'n1_e0.01_H+M+Q_L5'), ('10', 'n1_e0.01_H+M+Q_L10'),
         ('15', 'n1_e0.01_H+M+Q_L15')]),
+    'n3_exact_encodings': ('Encoding', CATEGORICAL, [('M (float)', 'n3_exact'), ('B9+C2 (ring)', 'n3_exact_ring')]),
 }
 
 
