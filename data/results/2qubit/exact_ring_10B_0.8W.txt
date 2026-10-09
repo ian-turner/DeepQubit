@@ -1,0 +1,17 @@
+goal        solved  gates     T  time (s)    nodes gen
+bell           yes      2     0      0.28          252
+ch             yes      7     2      0.04          852
+crz_2          yes      4     2      0.03          492
+cs             yes      5     3      0.03          612
+csx            yes      7     3      0.04          852
+cy             yes      3     0      0.02          372
+cz             yes      3     0      0.03          372
+dcx            yes      2     0      0.02          252
+ecr            yes      7     0      0.04          852
+iswap          yes      4     0      0.03          492
+qft2           yes      8     3      0.05          972
+sqrt_iswap     yes      8     2      0.05          972
+swap           yes      3     0      0.02          372
+w              yes      9     2      0.05        1,092
+
+solved 14/14, mean time (solved) 0.05s
