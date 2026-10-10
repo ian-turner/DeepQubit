@@ -1,0 +1,2 @@
+source "configs/n3_exact_ring"
+HEUR="resnet_fc_ring.1000H_4B_bn_0C"   # channel block off: B9 residue bits + k one-hot only (2325 inputs)
