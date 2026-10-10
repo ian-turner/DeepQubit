@@ -1,0 +1,12 @@
+goal     solved  gates     T  time (s)    nodes gen
+U1           no      -     -   1007.07   17,655,456
+U1_var       no      -     -   1000.13   18,154,656
+U2          yes     17     7     26.96      535,456
+adder       yes     19     8    209.67    3,383,456
+carry       yes     18     7    112.11    2,116,256
+cciswap      no      -     -   1000.27   18,545,056
+ccz         yes     13     7      5.02       49,056
+rcccx        no      -     -   1000.07   18,618,656
+toffoli     yes     15     7     13.69      231,456
+
+solved 5/9, mean time (solved) 73.49s
