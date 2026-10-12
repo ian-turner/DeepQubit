@@ -47,9 +47,15 @@ COMPARISONS = {
     'n1_e0.01_nerf_H+M+Q': ('NeRF dim', ORDINAL, [
         ('none', 'n1_e0.01_H+M+Q'), ('5', 'n1_e0.01_H+M+Q_L5'), ('10', 'n1_e0.01_H+M+Q_L10'),
         ('15', 'n1_e0.01_H+M+Q_L15')]),
-    'n3_exact_encodings': ('Encoding', CATEGORICAL, [('M (float)', 'n3_exact'), ('B9+C2 (ring)', 'n3_exact_ring'),
-                                                    ('B9 (ring)', 'n3_exact_ring_0C')]),
 }
+
+# exact-synthesis encodings, one graph per qubit count: n<N>_exact_encodings compares the configs n<N>_<suffix>; a config
+# that doesn't exist (e.g. no 2-qubit L15 run) is left out of that graph, so colors still match across qubit counts
+EXACT_ENCODINGS = [('M (float)', 'exact'), ('B9+C2 (ring)', 'exact_ring'), ('B9 (ring)', 'exact_ring_0C'),
+                   ('M, NeRF L15 (float)', 'exact_L15')]
+for num_qubits in (2, 3, 4):
+    COMPARISONS[f'n{num_qubits}_exact_encodings'] = ('Encoding', CATEGORICAL, [
+        (label, f'n{num_qubits}_{suffix}') for label, suffix in EXACT_ENCODINGS])
 
 
 def find_runs(root):
@@ -140,7 +146,9 @@ if __name__ == '__main__':
 
     for comp_name, (legend_title, colors, members) in COMPARISONS.items():
         runs, missing = [], []
-        for idx, (label, config) in enumerate(members):
+        members = [(idx, label, config) for idx, (label, config) in enumerate(members)
+                   if os.path.isfile(os.path.join(REPO, 'configs', config))]
+        for idx, label, config in members:
             csv_file = csv_file_of(config_run(config))
             if os.path.isfile(csv_file):
                 runs.append((label, colors[idx], np.array([p for _, p in read_csv(csv_file)])))

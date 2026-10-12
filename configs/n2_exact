@@ -1,4 +1,4 @@
-DOMAIN="n2_e0.000001"
+DOMAIN="n2_e0.000001_I"
 HEUR="resnet_fc.2000H_2B_bn"
 PATHFIND="graph_q"
 
