@@ -5,7 +5,7 @@ The qcircuit_exact domain sends the canonical relative unitary R = G S^dagger ei
 exponent one-hot (domain encoding B<m>), or -- preferred, 18x fewer bytes through the worker/runner/training buffers --
 as int16 coefficients plus k (domain encoding Z<m>), in which case this layer expands the same B<m> bits on the device.
 `RingFeatures` then computes the channel-representation features -- the same numbers the domain's `C<m>` encoding
-produces in numpy -- and optionally the float view (`M`). The resnet sees [B bits | channel bits | (floats)], with the
+produces in numpy -- and optionally the float view (`M`). The resnet sees [B bits | channel bits | (floats)] ([channel bits] alone with `co`), with the
 same layout for B<m> and Z<m> domains, so a checkpoint works with either.
 
 The channel uses the two Galois embeddings omega -> omega, omega -> omega^3 of Z[omega]: R P R^dagger for all 2n Pauli
@@ -14,8 +14,9 @@ are one GEMM with a fixed signed selection matrix, and the Z[sqrt2] value a + b 
 its two real embeddings a +- b sqrt2 by rounding: 16x fewer float64 FLOPs than the 4N x 4N companion form the numpy
 reference uses. The layer's tables are rebuilt from the domain and not saved in checkpoints.
 
-Network string: resnet_fc_ring.<H>H_<B>B[_bn][_<m>C][_fv]   e.g. resnet_fc_ring.1000H_4B_bn_2C
+Network string: resnet_fc_ring.<H>H_<B>B[_bn][_<m>C][_co][_fv]   e.g. resnet_fc_ring.1000H_4B_bn_2C
   <m>C  channel residue bits per numerator (default 2; 0 disables the channel block)
+  co    channel only: drop the B bits and k one-hot, so the resnet sees just the C<m> block (the C-only ablation)
   fv    append the float view of R
 Rows whose integers cannot be reconstructed (k > 2m - 2 for B<m> input, k > 29 for Z<m>) get a zeroed channel/float
 block.
@@ -46,8 +47,9 @@ class RingFeatures(nn.Module):
     # tables saved in checkpoints by earlier versions of this layer (now rebuilt from the domain instead)
     _LEGACY_BUFFERS = ('pow2', 'rot4f', 'gens', 'chan_idx', 'chan_sign', 'cbit_shifts')
 
-    def __init__(self, domain: QCircuitExact, chan_bits: int = 2, float_view: bool = False):
+    def __init__(self, domain: QCircuitExact, chan_bits: int = 2, float_view: bool = False, chan_only: bool = False):
         super().__init__()
+        assert not chan_only or chan_bits > 0, "channel-only (co) needs the channel block (<m>C with m > 0)"
         parts = domain._parts
         self.z_input: bool = parts[0][0] == 'Z'
         assert (self.z_input or parts[0][0] == 'B') and all(kind != 'C' for kind, _ in parts), \
@@ -61,6 +63,7 @@ class RingFeatures(nn.Module):
         self.chan_bits: int = chan_bits
         self.chan_cap: int = 2 * self.k_cap
         self.float_view: bool = float_view
+        self.chan_only: bool = chan_only
         self.n_bits: int = self.N * self.N * 4 * self.m
         self.n_k: int = self.k_cap + 1
         self.num_paulis: int = 4 ** self.n
@@ -151,7 +154,7 @@ class RingFeatures(nn.Module):
             base = x.to(torch.float32)
             c, k = self._decode(base)
         valid = (k <= self.k_lossless).to(base.dtype).view(B, 1)
-        feats: List[Tensor] = [base]
+        feats: List[Tensor] = [] if self.chan_only else [base]
         if self.chan_bits > 0:
             coef, ex = self._channel(c, k)
             res = torch.remainder(coef, 1 << self.chan_bits).reshape(B, -1, 1)
@@ -175,14 +178,16 @@ class ResnetFCRing(HeurNNet[FlatIn]):
 
     def __init__(self, nnet_input: FlatIn, out_dim: int, q_fix: bool, res_dim: int = 1000, num_blocks: int = 4,
                  batch_norm: bool = False, weight_norm: bool = False, layer_norm: bool = False, act_fn: str = "RELU",
-                 chan_bits: int = 2, float_view: bool = False):
+                 chan_bits: int = 2, float_view: bool = False, chan_only: bool = False):
         super().__init__(nnet_input, out_dim, q_fix)
         domain = nnet_input.domain
         assert isinstance(domain, QCircuitExact), "resnet_fc_ring needs the qcircuit_exact domain"
         input_dims, one_hot_depths = nnet_input.get_input_info()
         assert len(input_dims) == 1 and one_hot_depths[0] == 1
-        self.ring_features = RingFeatures(domain, chan_bits=chan_bits, float_view=float_view)
+        self.ring_features = RingFeatures(domain, chan_bits=chan_bits, float_view=float_view, chan_only=chan_only)
         base_dim: int = self.ring_features.n_bits + self.ring_features.n_k if self.ring_features.z_input else input_dims[0]
+        if chan_only:
+            base_dim = 0
         input_dim_tot: int = base_dim + self.ring_features.extra_dim
 
         self.res_dim: int = res_dim
@@ -210,4 +215,5 @@ class ResnetFCRingParser(ResnetFCParser):
     def __init__(self) -> None:
         super().__init__()
         self.add_argument("C", "chan_bits", int, "channel-representation residue bits computed on the device (0 disables)", default=2)
+        self.add_argument("co", "chan_only", None, "channel only: feed just the C<m> block, without the B bits and k one-hot")
         self.add_argument("fv", "float_view", None, "append the float view of the relative unitary")

@@ -52,7 +52,7 @@ COMPARISONS = {
 # exact-synthesis encodings, one graph per qubit count: n<N>_exact_encodings compares the configs n<N>_<suffix>; a config
 # that doesn't exist (e.g. no 2-qubit L15 run) is left out of that graph, so colors still match across qubit counts
 EXACT_ENCODINGS = [('M (float)', 'exact'), ('B9+C2 (ring)', 'exact_ring'), ('B9 (ring)', 'exact_ring_0C'),
-                   ('M, NeRF L15 (float)', 'exact_L15')]
+                   ('M, NeRF L15 (float)', 'exact_L15'), ('C2 (ring)', 'exact_ring_C2')]
 for num_qubits in (2, 3, 4):
     COMPARISONS[f'n{num_qubits}_exact_encodings'] = ('Encoding', CATEGORICAL, [
         (label, f'n{num_qubits}_{suffix}') for label, suffix in EXACT_ENCODINGS])

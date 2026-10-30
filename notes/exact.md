@@ -80,7 +80,9 @@ embeddings ω → ω, ω³: R Pᵍ R† for all 2n generators is one complex (N�
 permutation), the 4ⁿ traces are one GEMM with a fixed ±1 selection matrix (`proj`; every Pauli phase is a power of
 i), and the Z[√2] numerator a + b√2 is recovered from its embeddings a ± b√2 by rounding (float64; 16× fewer FLOPs
 than the 4N×4N companion form). Rows whose integers are not exact (k > 2m−2 for `B` input, k > 29 for `Z`) get a
-zeroed channel/float block. Flags: `<m>C` channel bits (default 2, `0C` disables), `fv` float view. The layer is
+zeroed channel/float block. Flags: `<m>C` channel bits (default 2, `0C` disables), `co` channel only (drops the B
+bits and k one-hot, so the resnet sees exactly the numpy `C<m>` encoding: 1782 inputs at n=3; needs `<m>C` > 0),
+`fv` float view. The layer is
 tested bit-for-bit against the numpy `C`/`M` encodings (`tests/test_exact.py`). The domain must not include a `C`
 part when this network is used (the network refuses).
 

@@ -1,0 +1,2 @@
+source "configs/n3_exact_ring"
+HEUR="resnet_fc_ring.1000H_4B_bn_2C_co"   # channel only: C2 bits + channel exponent one-hots, no B9 bits or k one-hot (1782 inputs)

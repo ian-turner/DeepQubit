@@ -307,6 +307,29 @@ def test_resnet_fc_ring_builds_through_factory():
         assert 'resnet_fc_ring' in str(e)
 
 
+def test_resnet_fc_ring_channel_only_matches_numpy_c2():
+    import torch
+    from deepxube.factories.pathfind_fns_factory import get_path_fns_nnet_par_dict
+    from nnets.resnet_fc_ring import RingFeatures
+    dom_z, name = get_domain_from_arg('qcircuit_exact.n3_I_Z9')
+    dom_c = get_domain_from_arg('qcircuit_exact.n3_I_C2')[0]
+    rng = np.random.RandomState(14)
+    states = [walk_both('_I', rng.randint(21, size=L).tolist())[1] for L in [0, 1, 4, 9, 15, 22, 30, 50]]
+    goals = [QGoalExact(s.coeffs, s.k) for s in states[::-1]]
+    out = RingFeatures(dom_z, chan_bits=2, chan_only=True)(torch.tensor(dom_z.to_np_flat_sg(states, goals)[0])).numpy()
+    ref = dom_c.to_np_flat_sg(states, goals)[0]
+    assert out.shape == ref.shape == (8, 1782) and np.array_equal(out, ref)
+    nnet = get_path_fns_nnet_par_dict(dom_z, name, ['heurv,resnet_fc_ring.50H_1B_bn_2C_co'], torch.device('cpu'))[1]['heurv'].get_nnet()
+    assert nnet.ring_features.chan_only and nnet.heur[0].in_features == 1782
+    nnet.eval()
+    assert nnet([torch.tensor(dom_z.to_np_flat_sg(states, goals)[0])])[0].shape == (8, 1)
+    try:
+        RingFeatures(dom_z, chan_bits=0, chan_only=True)
+        assert False, "channel-only without channel bits must be rejected"
+    except AssertionError as e:
+        assert 'co' in str(e)
+
+
 def test_next_state_output_is_canonical():
     """next_state skips reduction/canonicalization for gates that cannot change them; check against a full normalize"""
     rng = np.random.RandomState(10)
